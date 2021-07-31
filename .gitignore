@@ -4,6 +4,10 @@
 *.sso
 *.tar*
 *.tgz*
+*.bmp*
+*.jpg*
+*.png*
+
 __pycache__
 .vscode
 .obj
