@@ -1,0 +1,15 @@
+*.pyc
+*.a
+*.so
+*.sso
+*.tar*
+*.tgz*
+__pycache__
+.vscode
+.obj
+tmp
+boost
+python3.7
+VeriFinger_License
+Neurotec_Biometric_12_0_SDK
+test
