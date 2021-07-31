@@ -25,8 +25,8 @@ def compute_cmc(score_mat, max_rank=30):
     search_names = np.array(score_mat["search_names"])
     file_names = np.array(score_mat["file_names"])
 
-    score_arr = np.argsort(score_arr, axis=1)[:, :max_rank]
-    sorted_names = file_names[score_arr]
+    score_arr = np.argsort(score_arr, axis=1)[:, ::-1]
+    sorted_names = file_names[score_arr[:, :max_rank]]
 
     rank_arr = 1 * (sorted_names == search_names[:, None])
     rank_arr = np.cumsum(rank_arr, axis=1)
