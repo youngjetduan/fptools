@@ -40,8 +40,8 @@ def distance_pc(pts_A, pts_B, ratio_sample=0.05, min_samples=1000, hemi=False):
     return error
 
 
-def estimate_affine_3d(pts_src, pts_tar):
-    """ estimate affine transform (rotation and translation) between two point clouds
+def estimate_affine_transform(pts_src, pts_tar):
+    """ estimate affine transform based on 3 points only
     
     Parameters:
         [None]
@@ -56,7 +56,7 @@ def estimate_affine_3d(pts_src, pts_tar):
     R = np.dot(V, U.T)
     if slg.det(R) < 0:
         U, S, V = slg.svd(R)
-        V[:, 2] *= -1
+        V[:, -1] *= -1
         R = np.dot(V, U.T)
     t = pts_tar_c - np.dot(R, pts_src_c)
     return R, t
