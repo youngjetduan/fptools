@@ -307,7 +307,7 @@ if __name__ == "__main__":
     img_name1 = "1"
     img_name2 = "1"
 
-    mnt_type = "fingernet"
+    mnt_type = "neu"
 
     mnts1, img_shape1 = load_minutiae(
         f"/home/dyj/disk1/data/finger/Hisign/latent/feature/mnt/manual/{img_name1}.mnt", return_hearder=True
