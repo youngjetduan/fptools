@@ -12,6 +12,7 @@ import numpy as np
 from glob import glob
 import scipy.io as sio
 import cv2
+from scipy.ndimage.morphology import distance_transform_edt
 
 from .uni_io import mkdir
 
@@ -26,10 +27,27 @@ from .uni_io import mkdir
 #                 fp.write(f"{cur[0]} {cur[1]} {2 * np.pi - cur[2] * np.pi/180}\n")
 
 
+def generate_heatmap(img_shape, kps, factor=8, radius=3):
+    heatmap = np.zeros(img_shape)
+    for kp in kps:
+        cur_kp = np.rint(kp * 1.0 / factor).astype(int)
+        cur_kp[0] = cur_kp[0].clip(0, img_shape[1] - 1)
+        cur_kp[1] = cur_kp[1].clip(0, img_shape[0] - 1)
+        heatmap[np.rint(cur_kp[1]).astype(int), np.rint(cur_kp[0]).astype(int)] = 1
+    if len(kps):
+        heatmap = np.exp(-distance_transform_edt(1 - heatmap) ** 2 / (2 * radius ** 2))
+    return heatmap
+
+
 def remove_wrond_matches(kps1, kps2, ransacReprojThreshold=10):
-    H, status = cv2.findHomography(
-        kps1[:, None], kps2[:, None], cv2.RANSAC, ransacReprojThreshold=ransacReprojThreshold
-    )
+    if kps1.shape[-1] == 2:
+        H, status = cv2.estimateAffinePartial2D(
+            kps1[:, None], kps2[:, None], method=cv2.RANSAC, ransacReprojThreshold=ransacReprojThreshold
+        )
+    elif kps1.shape[-1] == 3:
+        H, status = cv2.estimateAffine3D(kps1[:, None], kps2[:, None], ransacReprojThreshold=ransacReprojThreshold)
+    else:
+        raise ValueError(f"unsopported dimension {kps1.shape[-1]}")
     # return kps1[status[:, 0] > 0,], kps2[status[:, 0] > 0,]
     return status[:, 0] > 0
 

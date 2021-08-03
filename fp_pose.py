@@ -21,7 +21,7 @@ def draw_pose(ax, pose, length=100, color="blue"):
     ax.arrow(start[0], start[1], end[0] - start[0], end[1] - start[1], width=2, fc=color, ec=color)
 
 
-def draw_img_with_pose(img, pose, save_path, cmap=None, vmin=None, vmax=None, mask=None, length=100, color="blue"):
+def draw_img_with_pose(img, pose, save_path, cmap="gray", vmin=None, vmax=None, mask=None, length=100, color="blue"):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)

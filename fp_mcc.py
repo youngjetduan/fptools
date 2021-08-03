@@ -20,8 +20,9 @@ import cv2
 import time
 from PIL import Image, ImageDraw
 
-from .uni_io import mkdir
-from .fp_verifinger import load_minutiae
+sys.path.append(osp.dirname(osp.abspath(__file__)))
+from uni_io import mkdir
+from fp_verifinger import load_minutiae
 
 
 def load_mcc_feature(fpath):
@@ -304,8 +305,8 @@ def normalize_minu_dir(angle_rad, edge=180):
 if __name__ == "__main__":
     tool_mcc = MCC()
 
-    img_name1 = "1"
-    img_name2 = "1"
+    img_name1 = "1000"
+    img_name2 = "1000"
 
     mnt_type = "neu"
 
@@ -330,6 +331,16 @@ if __name__ == "__main__":
     )
 
     score, pairs = tool_mcc.fingerprint_matching(mnts2, mnts1, des2, des1)
+    kps_q = mnts1[pairs[:, 1]].astype(np.float32)
+    kps_t = mnts2[pairs[:, 0]].astype(np.float32)
+
+    _, status = cv2.estimateAffinePartial2D(
+        kps_t[:, None, :2], kps_q[:, None, :2], method=cv2.RANSAC, ransacReprojThreshold=25
+    )
+    pairs = pairs[status[:, 0] > 0]
+    kps_q = kps_q[status[:, 0] > 0]
+    kps_t = kps_t[status[:, 0] > 0]
+
     print(f"=> score: {score} of {len(pairs)} pairs / ({len(mnts1)} vs {len(mnts2)})")
 
     import imageio
@@ -338,13 +349,6 @@ if __name__ == "__main__":
 
     img1 = imageio.imread(f"/home/dyj/disk1/data/finger/Hisign/latent/image/{img_name1}.bmp")
     img2 = imageio.imread(f"/home/dyj/disk1/data/finger/Hisign/file/image/{img_name2}.bmp")
-    kps_q = mnts1[pairs[:, 1]]
-    kps_t = mnts2[pairs[:, 0]]
-
-    # if len(kps_q):
-    #     rand_idx = np.random.choice(np.arange(len(pairs)), 10)
-    #     kps_q = kps_q[rand_idx]
-    #     kps_t = kps_t[rand_idx]
 
     length = 20
 

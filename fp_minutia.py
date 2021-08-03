@@ -13,11 +13,11 @@ from glob import glob
 import matplotlib.pylab as plt
 
 
-def draw_minutiae(ax, mnt_lst, R=15, arrow_length=15, color="red", linewidth=1.0):
+def draw_minutiae(ax, mnt_lst, R=15, arrow_length=15, color="red", linewidth=1.5):
     for mnt in mnt_lst:
         x, y, ori = mnt[:3]
-        dx, dy = arrow_length * np.cos(-ori * np.pi / 180), arrow_length * np.sin(-ori * np.pi / 180)
-        ax.scatter(x, y, marker="o", edgecolor=color, linewidths=linewidth)
+        dx, dy = arrow_length * np.cos(ori * np.pi / 180), arrow_length * np.sin(ori * np.pi / 180)
+        ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
         ax.plot([x, x + dx], [y, y + dy], "-", color=color, linewidth=linewidth)
 
 

@@ -21,14 +21,51 @@ sys.path.append(osp.join(neu_dir, "Verifinger"))
 from _verifinger import _verifinger
 
 
-def load_minutiae(fname, return_hearder=False):
-    sp = np.loadtxt(fname, skiprows=2, max_rows=2)
-    kps = np.loadtxt(fname, skiprows=5 + sp.sum().astype(int))
-    if return_hearder:
-        header = np.loadtxt(fname, max_rows=2).astype(np.int)
+def load_minutiae(fname, return_header=False):
+    num_sp = np.loadtxt(fname, skiprows=2, max_rows=2)
+    kps = np.loadtxt(fname, skiprows=5 + num_sp.sum().astype(int))
+    if return_header:
+        header = np.loadtxt(fname, max_rows=2).astype(int)
         return kps, header
     else:
         return kps
+
+
+def load_singular(fname, return_header=False):
+    num_core = np.loadtxt(fname, skiprows=2, max_rows=1).astype(int)
+    num_delta = np.loadtxt(fname, skiprows=3, max_rows=1).astype(int)
+    core_arr = np.loadtxt(fname, skiprows=5, max_rows=num_core)
+    delta_arr = np.loadtxt(fname, skiprows=5 + num_core, max_rows=num_delta)
+    if return_header:
+        header = np.loadtxt(fname, max_rows=2).astype(int)
+        return core_arr, delta_arr, header
+    else:
+        return core_arr, delta_arr
+
+
+def save_minutiae(fname, img_shape, core_arr=None, delta_arr=None, kps_arr=None):
+    """ save minutiae and singular points to '.mnt' file
+    
+    Parameters:
+        img_shpae: [width, height]
+    Returns:
+        [None]
+    """
+    core_arr = [] if core_arr is None else core_arr
+    delta_arr = [] if delta_arr is None else delta_arr
+    kps_arr = [] if kps_arr is None else kps_arr
+    with open(fname, "w") as fp:
+        fp.write(f"{img_shape[0]}\n{img_shape[1]}\n")
+        fp.write(f"{len(core_arr)}\n{len(delta_arr)}\n{len(kps_arr)}\n")
+        for c_core in core_arr:
+            fp.write(" ".join([f"{x:.2f}" for x in c_core]))
+            fp.write("\n")
+        for c_delta in delta_arr:
+            fp.write(" ".join([f"{x:.2f}" for x in c_delta]))
+            fp.write("\n")
+        for c_mnt in kps_arr:
+            fp.write(" ".join([f"{x:.2f}" for x in c_mnt]))
+            fp.write("\n")
 
 
 class Verifinger(_verifinger):
