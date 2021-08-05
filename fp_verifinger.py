@@ -12,7 +12,10 @@ import numpy as np
 from glob import glob
 from ctypes import cdll
 
-neu_dir = "/mnt/data5/fptools/Verifinger"
+# server 27
+# neu_dir = "/mnt/data5/fptools/Verifinger"
+# server 33
+neu_dir = "/mnt/data1/dyj"
 
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_python37.so"))
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_numpy37.so"))
