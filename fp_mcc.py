@@ -160,18 +160,38 @@ class MCC:
         return dist, angle, r_angle
 
     def fingerprint_matching(self, mnts1, mnts2, des1, des2):
+        """ Note that the number of minutiae in 'mnts2' should be higher than 'mnts1'
+        
+        Parameters:
+            [None]
+        Returns:
+            [None]
+        """
         # end = time.time()
         S = self.compute_similarity_matrix(des1, des2)
         # end = time.time() - end
         # print(f"=> similarity time: {end:.3f}s")
 
         th = 0
+        # top max_n for each mnt1
         max_n = min(2, S.shape[1])
-        indices1 = np.arange(S.shape[0]).repeat(max_n, axis=-1).reshape(-1)
-        indices2 = np.argsort(S, axis=1)[:, : -max_n - 1 : -1].reshape(-1)
-        idx_mask = S[indices1, indices2] > th
-        indices1 = indices1[idx_mask]
-        indices2 = indices2[idx_mask]
+        indices11 = np.arange(S.shape[0]).repeat(max_n, axis=-1).reshape(-1)
+        indices21 = np.argsort(S, axis=1)[:, : -max_n - 1 : -1].reshape(-1)
+        idx_mask = S[indices11, indices21] > th
+        indices11 = indices11[idx_mask]
+        indices21 = indices21[idx_mask]
+        # top max_n for each mnt2
+        max_n = min(2, S.shape[0])
+        indices12 = np.argsort(S, axis=0)[: -max_n - 1 : -1, :].reshape(-1)
+        indices22 = np.arange(S.shape[1])[None].repeat(max_n, axis=0).reshape(-1)
+        idx_mask = S[indices12, indices22] > th
+        indices12 = indices12[idx_mask]
+        indices22 = indices22[idx_mask]
+        # combination
+        indices1 = indices11 + indices12
+        indices2 = indices21 + indices22
+        indices = list(set([(x1, x2) for x1, x2 in zip(indices1, indices2)]))
+        indices1, indices2 = map(list, zip(*indices))
 
         n = len(indices1)
         if n <= 3:

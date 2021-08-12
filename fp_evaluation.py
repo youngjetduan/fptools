@@ -10,7 +10,40 @@ import sys
 import os.path as osp
 import numpy as np
 from glob import glob
+from scipy.stats import norm
 import matplotlib.pyplot as plt
+
+
+def compute_roc(score_mat, num_steps=100):
+    """ compute ROC curve.
+    
+    Parameters:
+        score_mat: a dict contains {"genuine": ..., "impostor": ...}
+    Returns:
+        rate_arr: [false-positive-rate; true-positive-rate]
+    """
+    genuine_scores = score_mat["genuine"].astype(np.float32).flatten()
+    impostor_scores = score_mat["impostor"].astype(np.float32).flatten()
+    num_steps = min(num_steps, len(genuine_scores) + len(impostor_scores))
+
+    threshs = np.concatenate(
+        (
+            np.linspace(
+                min(genuine_scores.min(), impostor_scores.min()),
+                max(genuine_scores.max(), impostor_scores.max()),
+                num_steps // 2,
+            ),
+            np.random.choice(
+                np.concatenate((genuine_scores, impostor_scores)), num_steps - num_steps // 2, replace=False
+            ),
+        )
+    )
+    threshs = np.sort(threshs)
+    rate_arr = np.zeros([2, num_steps])
+    for ii, c_th in enumerate(threshs):
+        rate_arr[0, ii] = (impostor_scores >= c_th).sum() * 1.0 / len(impostor_scores)
+        rate_arr[1, ii] = (genuine_scores >= c_th).sum() * 1.0 / len(genuine_scores)
+    return rate_arr
 
 
 def compute_cmc(score_mat, max_rank=30):
@@ -19,7 +52,7 @@ def compute_cmc(score_mat, max_rank=30):
     Parameters:
         score_mat: a dict contains {"score": ..., "search_names": ..., "file_names": ...}
     Returns:
-        [None]
+        rank_arr: length equal to max_rank
     """
     score_arr = score_mat["score"]
     search_names = np.array(score_mat["search_names"])
@@ -33,6 +66,24 @@ def compute_cmc(score_mat, max_rank=30):
     rank_arr = rank_arr.sum(axis=0) * 1.0 / len(search_names)
 
     return rank_arr
+
+
+def draw_roc(ax, rate_arr, profile="k-", linewidth=1.5, label=""):
+    ax.plot(rate_arr[0], rate_arr[1], profile, linewidth=linewidth, label=label)
+    ax.set_xscale("log")
+    ax.set_xlabel("FNR")
+    ax.set_ylabel("TPR")
+    ax.set_title("ROC curve using Verifinger")
+
+
+def draw_det(ax, rate_arr, profile="k-", linewidth=1.5, label=""):
+    ax.plot(rate_arr[0], 1 - rate_arr[1], profile, linewidth=linewidth, label=label)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("FMR")
+    ax.set_ylabel("FNMR")
+    ax.grid("on", linestyle="--")
+    ax.set_title("DET curve using Verifinger")
 
 
 def draw_cmc(ax, rank_arr, profile="k-s", linewidth=1.5, label=""):

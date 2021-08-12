@@ -13,6 +13,12 @@ from glob import glob
 from scipy.ndimage import distance_transform_edt
 
 
+def calc_mass_center(img):
+    grid = np.stack(np.meshgrid(*[np.arange(x) for x in img.shape], indexing="ij")).reshape(img.ndim, -1)
+    center = (img.reshape(1, -1) * grid).sum(1) / img.sum().clip(1e-3, None)
+    return center
+
+
 def calc_seg_iou(input, target):
     smooth = 1e-3
     input_var = input.astype(np.float32)
