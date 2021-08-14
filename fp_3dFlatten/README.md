@@ -1,0 +1,9 @@
+## required
+Python 3.7.10
+
+math
+matplotlib==3.3.4
+numpy==1.20.3
+scipy==1.6.2
+scikit-learn==0.24.2
+scikit-image==0.18.1
