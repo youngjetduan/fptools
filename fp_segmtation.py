@@ -59,28 +59,19 @@ def segmentation_postprocessing(seg, kernel_size=5):
 def segmentation_coherence(img, win_size=8, stride=8):
     # average pooling
     Gx, Gy = np.gradient(img.astype(np.float32))
-    coh = np.sqrt((Gx ** 2 - Gy ** 2) ** 2 + 4 * Gx ** 2 * Gy ** 2)
-    # coh = gaussian_filter(coh, sigma=win_size / 2)
-    coh = zoom(coh, 1.0 / stride, order=1)
-    # coh = gaussian_filter(coh, sigma=win_size / 4)
-    # coh = gaussian_filter(coh, sigma=win_size / 4)
-    # coh_tensor = torch.tensor(coh[None, None,]).float()
-    # coh = F.avg_pool2d(coh_tensor, 2 * win_size - 1, stride=1, padding=win_size - 1)
-    # coh = F.avg_pool2d(coh, 2 * win_size - 1, stride=stride, padding=win_size - 1).squeeze().numpy()
-    seg = coh > 50
-
-    # h, w = img.shape[:2]
-    # h //= stride
-    # w //= stride
-    # blks = np.stack(np.split(img, h, axis=0), axis=-1)
-    # blks = np.stack(np.split(blks, w, axis=1), axis=-1)
-    # blks = blks.reshape(stride ** 2, h, w)
-    # seg = np.std(blks, axis=0) > 0.1 * 255
+    Gxx = uniform_filter(Gx ** 2, win_size / 3)
+    Gyy = uniform_filter(Gy ** 2, win_size / 3)
+    Gxy = uniform_filter(Gx * Gy, win_size / 3)
+    coh = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2) / (Gxx + Gyy).clip(1e-6, None)
+    print(coh.min(), coh.max())
+    if stride != 1:
+        coh = zoom(coh, 1.0 / stride, order=1)
+    seg = coh > 0.5
 
     selem = np.ones((5, 5))
-    seg = morphology.remove_small_holes(seg, area_threshold=100)
-    seg = morphology.remove_small_objects(seg, min_size=100)
     seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
+    seg = morphology.remove_small_holes(seg, area_threshold=1000 // stride)
+    seg = morphology.remove_small_objects(seg, min_size=1000 // stride)
     return seg
 
 
