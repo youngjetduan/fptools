@@ -63,7 +63,6 @@ def segmentation_coherence(img, win_size=8, stride=8):
     Gyy = uniform_filter(Gy ** 2, win_size / 3)
     Gxy = uniform_filter(Gx * Gy, win_size / 3)
     coh = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2) / (Gxx + Gyy).clip(1e-6, None)
-    print(coh.min(), coh.max())
     if stride != 1:
         coh = zoom(coh, 1.0 / stride, order=1)
     seg = coh > 0.5
