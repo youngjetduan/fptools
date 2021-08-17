@@ -4,7 +4,7 @@ version:
 Author: Xiongjun Guan
 Date: 2021-07-23 11:15:30
 LastEditors: Xiongjun Guan
-LastEditTime: 2021-08-14 17:48:05
+LastEditTime: 2021-08-15 12:01:52
 '''
 
 import numpy as np
@@ -16,7 +16,6 @@ from scipy import optimize
 from scipy.spatial.transform import Rotation
 from scipy.interpolate import griddata
 from skimage.measure import CircleModel
-
 # from tqdm import tqdm
 # from scipy.optimize import minimize
 # from skimage.measure import EllipseModel
@@ -526,7 +525,8 @@ def PointsFlattenByCircle(points, dpi):
             circle = CircleModel()
             circle.estimate(points_step[:, [0, 2]])
             xc, zc, r = circle.params
-            if abs(xc) > r or zc < np.mean(points_step[:, 2]):
+            if points_step.shape[0] == 0 or abs(xc) > r or zc < np.mean(
+                    points_step[:, 2]):
                 init_step += 1
                 continue
             z_pre = zc - r
@@ -552,7 +552,8 @@ def PointsFlattenByCircle(points, dpi):
             circle.estimate(points_step[:, [0, 2]])
             xc, zc, r = circle.params
             # When fitting is incorrect, the last longitudinal gradient is used as the approximation
-            if abs(xc) > r or zc < np.mean(points_step[:, 2]):
+            if points_step.shape[0] == 0 or abs(xc) > r or zc < np.mean(
+                    points_step[:, 2]):
                 v += math.sqrt(
                     math.pow(z_post - z_pre, 2) + math.pow(pixel2mm, 2))
                 jump_step.append(step)
