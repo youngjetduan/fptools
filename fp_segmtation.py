@@ -8,11 +8,15 @@ import os.path as osp
 import numpy as np
 from glob import glob
 from skimage import morphology
-from scipy.ndimage import gaussian_filter, uniform_filter, zoom
+import scipy.ndimage as ndi
+from scipy.spatial import ConvexHull
+from PIL import Image, ImageDraw
 from skimage.segmentation import watershed
 from skimage.filters import sobel
 import torch
 import torch.nn.functional as F
+
+from .fp_orientation import calc_orientation_graident
 
 
 def ridge_coherence(img, win_size=8, stride=8):
@@ -48,34 +52,51 @@ def segmentation_clustering(samples):
     return pred_1 | pred_2
 
 
-def segmentation_postprocessing(seg, kernel_size=5):
+def find_largest_connected_region(seg):
+    label_im, nb_labels = ndi.label(seg)
+    sizes = ndi.sum_labels(seg, label_im, index=range(0, nb_labels + 1))
+    max_label = np.argmax(sizes)
+    largest_seg = np.zeros_like(seg)
+    largest_seg[label_im == max_label] = 1
+    return largest_seg
+
+
+def convex_hull_image(data):
+    region = np.argwhere(data)
+    hull = ConvexHull(region)
+    verts = [(region[v, 0], region[v, 1]) for v in hull.vertices]
+    img = Image.new("L", data.shape, 0)
+    ImageDraw.Draw(img).polygon(verts, outline=1, fill=1)
+    mask = np.array(img)
+    return mask.T
+
+
+def segmentation_postprocessing(seg, kernel_size=5, threshold=250):
     selem = np.ones((kernel_size, kernel_size))
-    seg = morphology.remove_small_holes(seg, area_threshold=100)
-    seg = morphology.remove_small_objects(seg, min_size=100)
-    seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
+    seg = morphology.binary_erosion(seg.astype(np.bool), selem=selem)
+    seg = morphology.remove_small_holes(seg, area_threshold=threshold)
+    seg = morphology.remove_small_objects(seg, min_size=threshold)
+    seg = find_largest_connected_region(seg)
+    seg = convex_hull_image(seg)
     return seg
 
 
-def segmentation_coherence(img, win_size=8, stride=8):
+def segmentation_coherence(img, win_size=16, stride=8, threshold=5):
     # average pooling
-    Gx, Gy = np.gradient(img.astype(np.float32))
-    Gxx = uniform_filter(Gx ** 2, win_size / 3)
-    Gyy = uniform_filter(Gy ** 2, win_size / 3)
-    Gxy = uniform_filter(Gx * Gy, win_size / 3)
-    coh = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2) / (Gxx + Gyy).clip(1e-6, None)
-    if stride != 1:
-        coh = zoom(coh, 1.0 / stride, order=1)
-    seg = coh > 0.5
+    _, coh = calc_orientation_graident(img, win_size, stride)
+    seg = coh > threshold
 
-    selem = np.ones((5, 5))
-    seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
-    seg = morphology.remove_small_holes(seg, area_threshold=1000 // stride)
-    seg = morphology.remove_small_objects(seg, min_size=1000 // stride)
+    seg = segmentation_postprocessing(seg, kernel_size=5, threshold=2000 // stride)
+
+    # from skimage import exposure, filters, morphology
+    # from fptools.uni_image import intensity_normalization
+
+    # seg = exposure.equalize_adapthist(img)
     return seg
 
 
 def segmentation_watershed(img, markers, stride=8):
-    img = zoom(img, 1.0 / stride, order=1)
+    img = ndi.zoom(img, 1.0 / stride, order=1)
     # markers = zoom(markers, 1.0 / stride, order=0)
     elevation_map = sobel(img)
     seg = watershed(elevation_map, markers) - 1

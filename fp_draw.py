@@ -13,6 +13,8 @@ from glob import glob
 import matplotlib.pylab as plt
 from matplotlib.patches import ConnectionPatch
 
+from .uni_io import mkdir
+
 
 def draw_pose(ax, pose, length=100, color="blue"):
     x, y, theta = pose
@@ -80,30 +82,29 @@ def draw_img_with_orientation(
     plt.close(fig)
 
 
-def draw_minutiae(
-    ax, img, mnt_lst, cmap="gray", vmin=None, vmax=None, R=15, arrow_length=15, color="red", linewidth=1.5
-):
-    ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
+def draw_minutiae(ax, mnt_lst, arrow_length=15, color="red", linewidth=1.5):
     for mnt in mnt_lst:
         x, y, ori = mnt[:3]
         dx, dy = arrow_length * np.cos(ori * np.pi / 180), arrow_length * np.sin(ori * np.pi / 180)
         ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
         ax.plot([x, x + dx], [y, y + dy], "-", color=color, linewidth=linewidth)
-    ax.set_xlim(0, img.shape[1])
-    ax.set_ylim(img.shape[0], 0)
-    ax.set_axis_off()
 
 
 def draw_minutia_on_finger(
-    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, R=10, arrow_length=15, color="red", linewidth=1.5
+    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5
 ):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
-    draw_minutiae(ax, mnt_lst, cmap, vmin, vmax, R, arrow_length, color, linewidth)
+    ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
+    draw_minutiae(ax, mnt_lst, arrow_length, color, linewidth)
 
+    ax.set_xlim(0, img.shape[1])
+    ax.set_ylim(img.shape[0], 0)
+    ax.set_axis_off()
     fig.tight_layout()
+    mkdir(osp.dirname(save_path))
     fig.savefig(save_path, bbox_inches="tight")
     plt.close(fig)
 
