@@ -15,7 +15,8 @@ from ctypes import cdll
 # server 27
 # neu_dir = "/mnt/data5/fptools/Verifinger"
 # server 33
-neu_dir = "/mnt/data1/dyj"
+# neu_dir = "/mnt/data1/dyj"
+neu_dir = np.loadtxt(osp.join(osp.dirname(osp.abspath(__file__)), "neu_dir.txt"), str).tolist()
 
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_python37.so"))
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_numpy37.so"))

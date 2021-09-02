@@ -87,11 +87,6 @@ def segmentation_coherence(img, win_size=16, stride=8, threshold=50):
     seg = coh > threshold
 
     seg = segmentation_postprocessing(seg, kernel_size=5, stride=stride)
-
-    # from skimage import exposure, filters, morphology
-    # from fptools.uni_image import intensity_normalization
-
-    # seg = exposure.equalize_adapthist(img)
     return seg
 
 
