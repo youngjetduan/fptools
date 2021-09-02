@@ -13,6 +13,11 @@ from glob import glob
 from scipy.ndimage import distance_transform_edt
 
 
+def generate_grid(shape):
+    grid = np.stack(np.meshgrid(*[np.arange(x) for x in shape], indexing="ij"))
+    return grid
+
+
 def calc_mass_center(img):
     grid = np.stack(np.meshgrid(*[np.arange(x) for x in img.shape], indexing="ij")).reshape(img.ndim, -1)
     center = (img.reshape(1, -1) * grid).sum(1) / img.sum().clip(1e-3, None)
@@ -32,7 +37,7 @@ def calc_seg_iou(input, target):
     return iou
 
 
-def intensity_normalization(img):
+def intensity_normalization(img, mask=None):
     """ map intensity to [0,1]
     
     Parameters:
@@ -40,7 +45,11 @@ def intensity_normalization(img):
     Returns:
         [None]
     """
-    img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    if mask is not None:
+        img = (img * 1.0 - img[mask > 0].min()) / (img[mask > 0].max() - img[mask > 0].min()).clip(1e-6, None)
+    else:
+        img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    img = img.clip(0, 1)
     return img
 
 

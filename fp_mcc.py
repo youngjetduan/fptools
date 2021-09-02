@@ -188,10 +188,12 @@ class MCC:
         indices12 = indices12[idx_mask]
         indices22 = indices22[idx_mask]
         # combination
-        indices1 = indices11 + indices12
-        indices2 = indices21 + indices22
+        indices1 = np.concatenate((indices11, indices12))
+        indices2 = np.concatenate((indices21, indices22))
         indices = list(set([(x1, x2) for x1, x2 in zip(indices1, indices2)]))
         indices1, indices2 = map(list, zip(*indices))
+        indices1 = np.array(indices1)
+        indices2 = np.array(indices2)
 
         n = len(indices1)
         if n <= 3:

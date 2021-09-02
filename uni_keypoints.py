@@ -41,7 +41,10 @@ def generate_heatmap(img_shape, kps, factor=8, radius=3):
 
 def remove_wrond_matches(kps1, kps2, ransacReprojThreshold=10):
     if kps1.shape[-1] == 2:
-        H, status = cv2.estimateAffinePartial2D(
+        # H, status = cv2.estimateAffinePartial2D(
+        #     kps1[:, None], kps2[:, None], method=cv2.RANSAC, ransacReprojThreshold=ransacReprojThreshold
+        # )
+        H, status = cv2.findHomography(
             kps1[:, None], kps2[:, None], method=cv2.RANSAC, ransacReprojThreshold=ransacReprojThreshold
         )
     elif kps1.shape[-1] == 3:
