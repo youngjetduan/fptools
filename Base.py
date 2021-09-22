@@ -1,6 +1,6 @@
 """
 Descripttion: Python version converted from the 'base' code (Matlab version)
-version: 
+version:
 Author: Xiongjun Guan
 Date: 2021-08-23 19:59:57
 LastEditors: Xiongjun Guan
@@ -24,13 +24,11 @@ ROUND_EPS = 0.00001  # for the problem of np.round() in '0.5'
 
 def MakeSameSize(X, h1, w1, fillval):
     """MakeSameSize - Image size is not exactly same after minify and magnify, so modify it
-
     Args:
         X ([type]): Origin image
         h1 ([type]): height
         w1 ([type]): weight
         fillval ([type]): Fill value
-
     Returns:
         Y: Filled image
     """
@@ -54,12 +52,10 @@ def MakeSameSize(X, h1, w1, fillval):
 
 def MedianFilter(I1, MASK, r):
     """Median filter the area where mask = 1
-
     Args:
         I1 ([type]): 2-D array
         MASK ([type]):  1 object, 0 background
         r ([type]): Filter radius
-
     Returns:
         I2: Filtered array
     """
@@ -90,13 +86,10 @@ def MedianFilter(I1, MASK, r):
 
 def FillHole(A):
     """Fill holes which are not connected to the border
-
     Args:
         A ([type]): 1 object, 0 background
-
     Raises:
         Exception: A.shape is smaller than 3x3
-
     Returns:
         B: 1 object, 0 background, 2 hole
     """
@@ -126,25 +119,21 @@ def FillHole(A):
 
 def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
     """Detect singular points using PointCare method
-
     Args:
         DIR ([type]): direction image
         MASK ([type]): 1 object, 0 background
         layer_num ([type]): num of resize layers
         bComputeDir (bool, optional): [description]. Defaults to False.
-
     Returns:
         sps: [x y type direction] of singular points
     """
     # ---------------------------------------
     def ComputeCoreDirection(sp, DIR, MASK):
         """Core direction
-
         Args:
             sp ([type]): [x,y,type] of singular point
             DIR ([type]): direction image
             MASK ([type]):  1 object, 0 background
-
         Returns:
             alphas: [description]
             score: [description]
@@ -184,7 +173,7 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
             sym = ComputeSymmetry(
                 DIR, sp[0], sp[1], NormalizeRidgeDir(ddir + temp_alpha + 90)
             )
-            if sym > max_sym:
+            if sym is not None and sym > max_sym:
                 max_sym = sym
                 alpha = NormalizeMinuDir(ddir + temp_alpha)
 
@@ -193,12 +182,10 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
     # ---------------------------------------
     def ComputeDeltaDirection(sp, DIR, MASK):
         """Delta direction
-
         Args:
             sp ([type]): [x,y,type] of singular point
             DIR ([type]): direction image
             MASK ([type]):  1 object, 0 background
-
         Returns:
             alphas: [description]
             score: [description]
@@ -233,8 +220,8 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
             refZ = refCosv[mask == 1] + 1j * refSinv[mask == 1]
         else:
             refy, refx = np.nonzero(mask == 1)
-            refy = refy + y1 - sp(2) + r
-            refx = refx + x1 - sp(1) + r
+            refy = refy + y1 - sp[1] + r
+            refx = refx + x1 - sp[0] + r
             refZ = refCosv[refy, refx] + 1j * refSinv[refy, refx]
 
         s = np.multiply(Z, refZ)
@@ -275,10 +262,8 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
     # ---------------------------------------
     def ClusterSP(SPS):
         """Clustering singular points
-
         Args:
             SPS ([type]): array of [[x, y, type direction]]
-
         Returns:
             sps: array of [[x, y, type direction]] after clustering
         """
@@ -315,7 +300,6 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
     def iDetectSP(type, DIR, x, y):
         """Calculate the possible singular points according to the angle change
         Note: the adjacent positions of the same singular point may be marked, so clustering is required
-
         Args:
             type ([type]): singular type
             DIR ([type]): orientation field
@@ -388,7 +372,7 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
     y, x = np.nonzero(MASKS[layer_num - 1] > 0)
     SPS[layer_num - 1] = iDetectSP(-1, DIRS[layer_num - 1], x, y)
     if SPS[layer_num - 1].shape[0] == 0:
-        return
+        return SPS[layer_num - 1]
 
     [X, Y] = np.meshgrid(np.arange(-2, 2), np.arange(-2, 2))
 
@@ -435,19 +419,17 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
 def GetBranchCuts(DIR, sps):
     """Find branch cuts by tracing orientation field starting from singular points
     Stop tracing when crossing current curve
-
     Args:
         DIR ([type]): direction image
         sps ([type]): [x y type direction] of singular points
-
     Returns:
         xnn: [description]
         ynn: [description]
     """
     xn = []
     yn = []
-    if sps.shape[1] == 0:
-        return
+    if sps.shape[0] == 0 or sps.shape[1] == 0:
+        return xn, yn
 
     # constants
     radius = 6
@@ -590,7 +572,6 @@ def GetBranchCuts(DIR, sps):
             sid,
         )
         """[summary]
-
         Returns:
             [type]: [description]
         """
@@ -703,11 +684,9 @@ def GetBranchCuts(DIR, sps):
 
 def eight2four(xm, ym):
     """Convert a 8-connected line to a 4-connected line
-
     Args:
         xm ([type]): [description]
         ym ([type]): [description]
-
     Returns:
         [type]: [description]
     """
@@ -726,13 +705,11 @@ def eight2four(xm, ym):
 
 def BresLine(Ax, Ay, Bx, By):
     """Bresenham's line drawing algorithm.
-
     Args:
         Ax ([type]): [description]
         Ay ([type]): [description]
         Bx ([type]): [description]
         By ([type]): [description]
-
     Returns:
         [type]: [description]
     """
@@ -787,12 +764,10 @@ def BresLine(Ax, Ay, Bx, By):
 
 def Cart2Pol(x, y, z=None):
     """Transform Cartesian to polar coordinates.
-
     Args:
         x ([type]): x
         y ([type]): y
         z ([type], optional): z. Defaults to None.
-
     Returns:
         [type]: polar coordinates th,r,[z]
     """
@@ -806,12 +781,10 @@ def Cart2Pol(x, y, z=None):
 
 def Pol2Cart(th, r, z=None):
     """Transform polar to Cartesian coordinates.
-
     Args:
         th ([type]): Angle (rad)
         r ([type]): Radius
         z ([type], optional): Height. Defaults to None.
-
     Returns:
         [type]: Cartesian coordinates X,Y,[Z]
     """
@@ -825,11 +798,9 @@ def Pol2Cart(th, r, z=None):
 
 def DownSampleDirField(DIR1, MASK1):
     """Downsampling orientation field by a factor of 2
-
     Args:
         DIR1 ([type]): Direction image
         MASK1 ([type]): 0: background, 1: reliable block
-
     Returns:
         DIR2: Resized direction image
         MASK2: Resized mask
@@ -851,13 +822,11 @@ def DownSampleDirField(DIR1, MASK1):
 
 def ComputeSymmetry(DIR, x, y, theta):
     """Compute symmetry of orientation field around a point
-
     Args:
         DIR ([type]): direction image
         x ([type]): X axis
         y ([type]): Y axis
         theta ([type]): [description]
-
     Returns:
         sym: Symmetry of orientation field around a point
     """
@@ -910,10 +879,8 @@ def ComputeSymmetry(DIR, x, y, theta):
 
 def NormalizeRidgeDir(X):
     """Convert an angle to the range of (-90,90]
-
     Args:
         X ([type]): angles
-
     Returns:
         [type]: angles in the range of (-90,90]
     """
@@ -927,10 +894,8 @@ def NormalizeRidgeDir(X):
 
 def NormalizeMinuDir(X):
     """Convert an angle to the range of (-180,180]
-
     Args:
         X ([type]): angles
-
     Returns:
         X: angles in the range of (-180,180]
     """
@@ -991,7 +956,6 @@ def FindCurve2(I, startx, starty):
 
 def RidgeFilterComplex(im, orient, freq, kx, ky):
     """Function to enhance fingerprint image via oriented filters
-
     Args:
         im ([type]): Image to be processed.
         orient ([type]): Ridge orientation image, obtained from RIDGEORIENT.
@@ -1005,7 +969,6 @@ def RidgeFilterComplex(im, orient, freq, kx, ky):
                         across the filter and hence controls the
                         orientational selectivity of the filter. A value of
                         0.5 for both kx and ky is a good starting point.
-
     Returns:
         newim_real,newim_imag: The enhanced image in real and imagine
     """
@@ -1141,11 +1104,9 @@ def ShowRegisteredImg(img1, img2):
     fp common is green
     fp only 1 is gray
     fp only 2 is red
-
     Args:
         img1 ([type]): fp1
         img2 ([type]): fp2
-
     Returns:
         im: [description]
     """
