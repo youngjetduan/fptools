@@ -13,14 +13,14 @@ def calc_orientation_graident(img, win_size=16, stride=8):
     Gx, Gy = np.gradient(img.astype(np.float32))
     Gxx = ndi.gaussian_filter(Gx ** 2, win_size / 3)
     Gyy = ndi.gaussian_filter(Gy ** 2, win_size / 3)
-    Gxy = ndi.gaussian_filter(Gx * Gy, win_size / 3)
+    Gxy = ndi.gaussian_filter(-Gx * Gy, win_size / 3)
     coh = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2)  # / (Gxx + Gyy).clip(1e-6, None)
     if stride != 1:
         Gxx = ndi.uniform_filter(Gxx, stride)[::stride, ::stride]
         Gyy = ndi.uniform_filter(Gyy, stride)[::stride, ::stride]
         Gxy = ndi.uniform_filter(Gxy, stride)[::stride, ::stride]
         coh = ndi.uniform_filter(coh, stride)[::stride, ::stride]
-    ori = 0.5 * np.arctan2(2 * Gxy, Gxx - Gyy)
+    ori = np.arctan2(2 * Gxy, Gxx - Gyy) * 90 / np.pi
     return ori, coh
 
 

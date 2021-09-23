@@ -11,11 +11,28 @@ import os.path as osp
 import numpy as np
 from glob import glob
 from scipy.ndimage import zoom
+from scipy import ndimage as ndi
 import torch
 import torch.nn.functional as F
 
-
+from . import fp_orientation
 from .uni_image import intensity_normalization
+
+
+def steerable_enhance(img, ori, seg, sigma=2):
+    if np.any(np.array(ori.shape) != np.array(img.shape)):
+        ori = fp_orientation.zoom_orientation(
+            ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1])
+        )
+    if np.any(np.array(seg.shape) != np.array(img.shape)):
+        seg = ndi.zoom(seg, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]), order=0)
+    Ixx = ndi.gaussian_filter(img.astype(np.float32), sigma, order=(0, 2))
+    Ixy = ndi.gaussian_filter(img.astype(np.float32), sigma, order=(1, 1))
+    Iyy = ndi.gaussian_filter(img.astype(np.float32), sigma, order=(2, 0))
+    sin_ori = np.sin(ori * np.pi / 180)
+    cos_ori = np.cos(ori * np.pi / 180)
+    J = cos_ori ** 2 * Ixx + sin_ori ** 2 * Iyy - 2 * sin_ori * cos_ori * Ixy
+    return intensity_normalization(J * seg) * 255
 
 
 def vectorize_orientation(ori, ang_stride=2, ang_range=180, sigma=5):
@@ -48,11 +65,10 @@ def gabor_bank(kernel_size=25, ang_stride=2, ang_range=180, sigma=4, Lambda=9, p
     return gb_cos, gb_sin
 
 
-def enhance(
+def gabor_enhance(
     img,
     ori,
     seg,
-    factor=8.0,
     kernel_size=25,
     ang_stride=2,
     ang_range=180,
@@ -65,11 +81,18 @@ def enhance(
 ):
     gb_cos, _ = gabor_bank(kernel_size, ang_stride, ang_range, gb_sigma, gb_lambda, gb_psi, gb_gamma)
 
+    if np.any(np.array(ori.shape) != np.array(img.shape)):
+        ori = fp_orientation.zoom_orientation(
+            ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1])
+        )
+    if np.any(np.array(seg.shape) != np.array(img.shape)):
+        seg = ndi.zoom(seg, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]), order=0)
+
     ori = np.where(seg > 0, ori, 91)
 
-    img = torch.tensor(img)
-    ori = torch.tensor(ori)
-    gb_cos = torch.tensor(gb_cos)
+    img = torch.tensor(img.astype(np.float32))
+    ori = torch.tensor(ori.astype(np.float32))
+    gb_cos = torch.tensor(gb_cos.astype(np.float32))
     if use_cuda:
         img = img.cuda()
         ori = ori.cuda()
@@ -78,7 +101,7 @@ def enhance(
     img_real = F.conv2d(img[None, None], gb_cos[:, None].type_as(img))
     img_real = F.pad(img_real, pad=(kernel_size // 2, kernel_size // 2, kernel_size // 2, kernel_size // 2))
     ori_peak = vectorize_orientation(ori[None, None], ang_stride, ang_range, vo_sigma)
-    ori_peak = F.upsample_bilinear(ori_peak, scale_factor=factor)
+    # ori_peak = F.upsample_bilinear(ori_peak, scale_factor=factor)
     img_real = (img_real * ori_peak).sum(dim=1)
 
     try:
@@ -86,7 +109,7 @@ def enhance(
     except:
         img_real = img_real.squeeze().numpy()
 
-    img_real = np.where(zoom(seg, factor, order=0) > 0, img_real, 0)
+    img_real = np.where(seg > 0, img_real, 0)
     img_real = intensity_normalization(img_real)
 
     return img_real
