@@ -76,8 +76,9 @@ def segmentation_postprocessing(seg, kernel_size=5, stride=8):
     seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
     seg = morphology.remove_small_holes(seg, area_threshold=2000 // stride)
     seg = morphology.remove_small_objects(seg, min_size=1000 // stride)
-    seg = find_largest_connected_region(seg)
-    seg = convex_hull_image(seg)
+    if seg.sum() > 0:
+        seg = find_largest_connected_region(seg)
+        seg = convex_hull_image(seg)
     return seg
 
 

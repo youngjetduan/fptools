@@ -32,7 +32,7 @@ def re_mkdir(path):
 
 def imwrite(path, img):
     mkdir(osp.dirname(path))
-    imageio.imwrite(path, img)
+    imageio.imwrite(path, np.rint(img).astype(np.uint8))
 
 
 def matwrite(path, mat):
