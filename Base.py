@@ -151,11 +151,18 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
         y1 = sp[1] - r
         x2 = sp[0] + r
         y2 = sp[1] + r
+        delta_x1 = max(0, -x1)
+        delta_x2 = max(0,x2-(DIR.shape[1] - 1))
+        delta_y1 = max(0, -y1)
+        delta_y2 = max(0, y2 - (DIR.shape[0] - 1))
+
         x1 = int(max(0, x1))
         y1 = int(max(0, y1))
         x2 = int(min(DIR.shape[1] - 1, x2))
         y2 = int(min(DIR.shape[0] - 1, y2))
         mask = MASK[y1 : (y2 + 1), x1 : (x2 + 1)]
+        refCosv = refCosv[delta_y1 : 2*r+1-delta_y2, delta_x1 : 2*r+1-delta_x2]
+        refSinv = refSinv[delta_y1 : 2*r+1-delta_y2, delta_x1 : 2*r+1-delta_x2]
         mask[sp[1] - y1, sp[0] - x1] = 0
         dirs = DIR[y1 : (y2 + 1), x1 : (x2 + 1)]
         cosv = np.cos(dirs[mask == 1] * np.pi / 90)
@@ -378,27 +385,21 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
 
     for k in range(layer_num - 2, -1, -1):
         for i in range(0, SPS[k + 1].shape[0]):
-            if SPS[k] is None:
-                SPS[k] = iDetectSP(
+            sps_new = iDetectSP(
                     SPS[k + 1][i, -1],
                     DIRS[k],
                     2 * SPS[k + 1][i, 0] + X.reshape(-1, order="F") + 1,
                     2 * SPS[k + 1][i, 1] + Y.reshape(-1, order="F") + 1,
                 )
-            else:
-                SPS[k] = np.vstack(
-                    (
-                        SPS[k],
-                        iDetectSP(
-                            SPS[k + 1][i, -1],
-                            DIRS[k],
-                            2 * SPS[k + 1][i, 0] + X.reshape(-1, order="F") + 1,
-                            2 * SPS[k + 1][i, 1] + Y.reshape(-1, order="F") + 1,
-                        ),
-                    )
-                )
+            if sps_new is not None and sps_new.shape[0] > 0:
+                if SPS[k] is None or SPS[k].shape[0] == 0:
+                    SPS[k] = sps_new
+                else:
+                    SPS[k] = np.vstack((SPS[k], sps_new))
 
     # Clustering SP
+    if SPS[0] is None or SPS[0].shape[0] == 0:
+        return np.empty((0, 6))
     sps = ClusterSP(SPS[0])
 
     sps_out = np.hstack((sps.astype(np.double), np.ones_like(sps)))
@@ -412,7 +413,6 @@ def DetectSP(DIR, MASK, layer_num, bComputeDir=False):
                 alphas, score = ComputeDeltaDirection(sps[i, :], DIR, MASK)
                 sps_out[i, 3:6] = alphas
 
-    sps_out = sps_out[sps_out[:, 0].argsort(), :]
     return sps_out
 
 

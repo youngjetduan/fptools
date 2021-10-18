@@ -1,6 +1,6 @@
 """
 Descripttion: Python version converted from the 'base' code (Matlab version)
-version: 
+version:
 Author: Xiongjun Guan
 Date: 2021-08-18 16:09:59
 LastEditors: Xiongjun Guan
@@ -78,7 +78,7 @@ def PhaseRegistration(
             "[%s] - [%s] Error: Insufficient number of matching points !\n"
             % (ftitle1, ftitle2)
         )
-        return
+        return None, -1, -1
 
     p_init = np.hstack(
         (MINU1[init_minu_pairs[:, 0], 0:2], MINU2[init_minu_pairs[:, 1], 0:2])
@@ -184,7 +184,7 @@ def PhaseRegistration(
             phaseDiff, PED1, UNWRAPPEDDIR1, blockSize, PHASE_MASK
         )
 
-        if xx.shape[0] > 0:
+        if xx.shape[0] > 2:
             xx = xx.reshape((-1, 1))
             yy = yy.reshape((-1, 1))
             p_phase = np.hstack(
@@ -202,8 +202,10 @@ def PhaseRegistration(
                 % (ftitle1, ftitle2)
             )
             suc = False
+            return None, -1, -1
     else:
         suc = False
+        return None, -1, -1
 
     # ---------------------------------------------------------- #
     # ----------------------- distortion ----------------------- #
@@ -239,7 +241,6 @@ def ExtractPhaseFeature(
     feature_path, res_path, ftitle, prefix="phase", ext="png", save=True
 ):
     """Extract phase information and save
-
     Args:
         feature_path ([type]): Binary/skeleton image path
         res_path ([type]): Save path
@@ -277,13 +278,11 @@ def ExtractPhaseFeature(
 
 def ComputePhase(img, DIR, PED, MASK):
     """compute phase
-
     Args:
         img ([type]): [description]
         DIR ([type]): [description]
         PED ([type]): [description]
         MASK ([type]): [description]
-
     Returns:
         PHASE: Phase
         DIR2: Direction
@@ -321,10 +320,8 @@ def ComputePhase(img, DIR, PED, MASK):
 
 def UnwrapOrientationField(D1):
     """Unwrap orientation field
-
     Args:
         D1 ([type]): direction image
-
     Returns:
         D2 : Unwrapped direction image
         mask : segmentation mask (0 background, 1 foreground, 2 branch cuts)
@@ -483,12 +480,30 @@ def UnwrapOrientationField(D1):
                 xnn[-1] = ind2[0, :]
                 ynn[-1] = ind2[1, :]
 
-        xnn[fail_ind] = np.array([])
-        ynn[fail_ind] = np.array([])
-        xnn = np.hstack((xnn, np.empty((1,), dtype=object)))
-        ynn = np.hstack((ynn, np.empty((1,), dtype=object)))
-        xnn[-1] = np.hstack(xnn[0:-1])
-        ynn[-1] = np.hstack(ynn[0:-1])
+        # xnn[fail_ind] = np.array([])
+        # ynn[fail_ind] = np.array([])
+        # xnn = np.hstack((xnn, np.empty((1,), dtype=object)))
+        # ynn = np.hstack((ynn, np.empty((1,), dtype=object)))
+        # xnn[-1] = np.hstack(xnn[0:-1])
+        # ynn[-1] = np.hstack(ynn[0:-1])
+
+        if xnn.shape[0] > 0:
+            xnn_list = []
+            ynn_list = []
+            for i in range(xnn.shape[0]):
+                if i not in fail_ind and xnn[i].shape[0] > 0:
+                    xnn_list.append(xnn[i])
+                    ynn_list.append(ynn[i])
+            if len(xnn_list) > 0:
+                xnn_list.append([])
+                ynn_list.append([])
+                xnn = np.array(xnn_list, dtype=object)
+                ynn = np.array(ynn_list, dtype=object)
+                xnn[-1] = np.hstack(xnn[0:-1])
+                ynn[-1] = np.hstack(ynn[0:-1])
+            else:
+                xnn = np.array([])
+                ynn = np.array([])
 
         D2[D1 == 91] = 1000  # invalid value
         D2 = D2[1:-1, 1:-1]
@@ -504,14 +519,12 @@ def UnwrapOrientationField(D1):
 
 
 def PhaseUnwrap(phase, mask, threshold=200.0):
-    """Herráez M A, Burton D R, Lalor M J, et al. Fast two-dimensional phase-unwrapping
+    """Herr�?ez M A, Burton D R, Lalor M J, et al. Fast two-dimensional phase-unwrapping
        algorithm based on sorting by reliability following a noncontinuous path[J]. Applied Optics, 2002, 41(35): 7437-7444.
-
     Args:
         phase ([type]): [description]
         mask ([type]): [description]
         threshold (float, optional): [description]. Defaults to 200.0.
-
     Returns:
         ret : True for success, False for failed
         phaseNew2 : unwrapped phase
@@ -814,6 +827,8 @@ def find_unwrap_start_point2(anchorPts, minuType, PHASE_MASK, phasediffRaw, phas
                 continue
             ind = np.argmax(curAreaVals)
             yy, xx = np.nonzero(tmpgoodArea)
+            if xx.shape[0] == 0:
+                continue
             sx = xx[ind]
             sy = yy[ind]
             m_offset = phasediffRaw[sy, sx] - phaseDiff[sy, sx]
@@ -827,10 +842,8 @@ def find_unwrap_start_point2(anchorPts, minuType, PHASE_MASK, phasediffRaw, phas
 
 def stdfilt(arr, nhood=3):
     """MATLAB stdfilt
-
     Args:
         arr ([type]): 2D array
-
     Returns:
         J: arr after standard filter
     """
@@ -846,14 +859,12 @@ def stdfilt(arr, nhood=3):
 
 def ComputeDistortion(phaseDiff, PED1, UNWRAPPEDDIR1, blkSize, PHASE_MASK):
     """Calculate the pixel by pixel displacement based on direction and phase difference
-
     Args:
         phaseDiff ([type]): Phase difference
         PED1 ([type]): Direction
         UNWRAPPEDDIR1 ([type]): Unwrapped direction
         blkSize ([type]): Grid size
         PHASE_MASK ([type]): Phase mask
-
     Returns:
         px,py: pixel distortion
         xx2,yy2: grid points in ROI

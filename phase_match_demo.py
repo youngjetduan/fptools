@@ -1,6 +1,6 @@
 """
 Descripttion: demo for phase matching (Zhe Cui)
-version: 
+version:
 Author: Xiongjun Guan
 Date: 2021-08-21 11:49:21
 LastEditors: Xiongjun Guan
@@ -112,6 +112,8 @@ if __name__ == "__main__":
         init_prefix,
         phase_prefix,
     )
+    if img_phase is None:
+        return
     if not osp.exists(res_path):
         os.makedirs(res_path)
     img_phase2_title = phase_prefix + ftitle1 + "_" + ftitle2
