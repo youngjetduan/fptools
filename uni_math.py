@@ -118,15 +118,15 @@ def estimate_affine_transform(pts_src, pts_tar):
     return R, t
 
 
-def euler_to_R(roll, pitch, yaw, is_deg=True):
+def euler_to_R(euler_angle, is_deg=True):
     """ euler angle to rotation matrix
     
     Parameters:
-        [None]
+        euler_angle: [roll, pitch, yaw]
     Returns:
         [None]
     """
-    R = Rotation.from_euler("ZYX", [yaw, pitch, roll], degrees=is_deg).as_matrix()
+    R = Rotation.from_euler("ZYX", [euler_angle[2], euler_angle[1], euler_angle[0]], degrees=is_deg).as_matrix()
 
     # if is_deg:
     #     roll = roll * np.pi / 180

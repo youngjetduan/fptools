@@ -37,7 +37,7 @@ def calc_seg_iou(input, target):
     return iou
 
 
-def intensity_normalization(img):
+def intensity_normalization(img, mask=None):
     """ map intensity to [0,1]
     
     Parameters:
@@ -45,7 +45,11 @@ def intensity_normalization(img):
     Returns:
         [None]
     """
-    img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    if mask is not None:
+        img = (img * 1.0 - img[mask > 0].min()) / (img[mask > 0].max() - img[mask > 0].min()).clip(1e-6, None)
+    else:
+        img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    img = img.clip(0, 1)
     return img
 
 
