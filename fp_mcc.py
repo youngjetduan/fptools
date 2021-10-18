@@ -160,8 +160,7 @@ class MCC:
         return dist, angle, r_angle
 
     def fingerprint_matching(self, mnts1, mnts2, des1, des2):
-        """ Note that the number of minutiae in 'mnts2' should be higher than 'mnts1'
-        
+        """
         Parameters:
             [None]
         Returns:
@@ -188,10 +187,16 @@ class MCC:
         indices12 = indices12[idx_mask]
         indices22 = indices22[idx_mask]
         # combination
-        indices1 = indices11 + indices12
-        indices2 = indices21 + indices22
+        indices1 = np.concatenate((indices11, indices12))
+        indices2 = np.concatenate((indices21, indices22))
         indices = list(set([(x1, x2) for x1, x2 in zip(indices1, indices2)]))
         indices1, indices2 = map(list, zip(*indices))
+        indices1 = np.array(indices1)
+        indices2 = np.array(indices2)
+
+        argidx = np.argsort(indices1 + indices2)
+        indices1 = indices1[argidx]
+        indices2 = indices2[argidx]
 
         n = len(indices1)
         if n <= 3:

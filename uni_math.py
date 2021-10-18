@@ -129,14 +129,29 @@ def euler_to_R(euler_angle, is_deg=True):
     R = Rotation.from_euler("ZYX", [euler_angle[2], euler_angle[1], euler_angle[0]], degrees=is_deg).as_matrix()
 
     # if is_deg:
-    #     roll = roll * np.pi / 180
-    #     pitch = pitch * np.pi / 180
-    #     yaw = yaw * np.pi / 180
+    #     roll = euler_angle[0] * np.pi / 180
+    #     pitch = euler_angle[1] * np.pi / 180
+    #     yaw = euler_angle[2] * np.pi / 180
     # R_x = np.array([[1, 0, 0], [0, np.cos(roll), -np.sin(roll)], [0, np.sin(roll), np.cos(roll)]])
     # R_y = np.array([[np.cos(pitch), 0, np.sin(pitch)], [0, 1, 0], [-np.sin(pitch), 0, np.cos(pitch)]])
     # R_z = np.array([[np.cos(yaw), -np.sin(yaw), 0], [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]])
     # R = np.dot(R_z, np.dot(R_y, R_x))
+    # print(R)
     return R
+
+
+def R_to_euler(R, is_deg=True):
+    euler = Rotation.from_matrix(R).as_euler("ZYX", degrees=is_deg)[::-1]
+
+    # roll = np.arctan2(R[2, 1], R[2, 2])
+    # pitch = np.arctan2(-R[2, 0], np.sqrt(R[2, 1] ** 2 + R[2, 2] ** 2))
+    # yaw = np.arctan2(R[1, 0], R[0, 0])
+    # euler = np.array([roll, pitch, yaw])
+    # if is_deg:
+    #     euler = euler * 180 / np.pi
+    # print("self", euler)
+
+    return euler
 
 
 if __name__ == "__main__":

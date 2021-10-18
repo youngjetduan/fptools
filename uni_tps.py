@@ -10,80 +10,19 @@ import sys
 import os.path as osp
 import numpy as np
 from glob import glob
-import itertools
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import cv2
+import scipy
 
 # phi(x1, x2) = r^2 * log(r), where r = ||x1 - x2||_2
 def compute_partial_repr(input_points, control_points):
-    N = input_points.size(0)
-    M = control_points.size(0)
-    pairwise_diff = input_points.view(N, 1, 2) - control_points.view(1, M, 2)
-    # original implementation, very slow
-    # pairwise_dist = torch.sum(pairwise_diff ** 2, dim = 2) # square of distance
+    pairwise_diff = input_points[:, None] - control_points[None]
     pairwise_diff_square = pairwise_diff * pairwise_diff
-    pairwise_dist = pairwise_diff_square[:, :, 0] + pairwise_diff_square[:, :, 1]
-    repr_matrix = 0.5 * pairwise_dist * torch.log(pairwise_dist)
+    pairwise_dist = pairwise_diff_square[..., 0] + pairwise_diff_square[..., 1]
     # fix numerical error for 0 * log(0), substitute all nan with 0
-    mask = repr_matrix != repr_matrix
-    repr_matrix.masked_fill_(mask, 0)
+    repr_matrix = 0.5 * pairwise_dist * np.log(pairwise_dist.clip(1e-3, None))
+    mask = (repr_matrix != repr_matrix) | np.isclose(pairwise_dist, 0)
+    repr_matrix[mask] = 0
     return repr_matrix
-
-
-class TPSGridGen(nn.Module):
-    def __init__(self, target_height, target_width, target_control_points, eps=0.02):
-        super(TPSGridGen, self).__init__()
-        assert target_control_points.ndimension() == 2
-        assert target_control_points.size(1) == 2
-        N = target_control_points.size(0)
-        self.num_points = N
-        self.target_height = target_height
-        self.target_width = target_width
-        target_control_points = target_control_points.float()
-
-        # create padded kernel matrix
-        forward_kernel = torch.zeros(N + 3, N + 3)
-        target_control_partial_repr = compute_partial_repr(target_control_points, target_control_points)
-        forward_kernel[:N, :N].copy_(target_control_partial_repr + eps * torch.eye(N))
-        forward_kernel[:N, -3].fill_(1)
-        forward_kernel[-3, :N].fill_(1)
-        forward_kernel[:N, -2:].copy_(target_control_points)
-        forward_kernel[-2:, :N].copy_(target_control_points.transpose(0, 1))
-        # compute inverse matrix
-        inverse_kernel = torch.pinverse(forward_kernel)
-
-        # create target cordinate matrix
-        HW = target_height * target_width
-        target_coordinate = list(itertools.product(range(target_height), range(target_width)))
-        target_coordinate = torch.Tensor(target_coordinate)  # HW x 2
-        Y, X = target_coordinate.split(1, dim=1)
-        Y = Y * 2 / (target_height - 1) - 1
-        X = X * 2 / (target_width - 1) - 1
-        target_coordinate = torch.cat([X, Y], dim=1)  # convert from (y, x) to (x, y)
-        target_coordinate_partial_repr = compute_partial_repr(target_coordinate, target_control_points)
-        target_coordinate_repr = torch.cat(
-            [target_coordinate_partial_repr, torch.ones(HW, 1), target_coordinate], dim=1
-        )
-
-        # register precomputed matrices
-        self.register_buffer("inverse_kernel", inverse_kernel)
-        self.register_buffer("padding_matrix", torch.zeros(3, 2))
-        self.register_buffer("target_coordinate_repr", target_coordinate_repr)
-
-    def forward(self, source_control_points):
-        assert source_control_points.ndimension() == 3
-        assert source_control_points.size(1) == self.num_points
-        assert source_control_points.size(2) == 2
-        batch_size = source_control_points.size(0)
-
-        Y = torch.cat(
-            [source_control_points, self.padding_matrix.type_as(source_control_points).expand(batch_size, -1, -1)], 1
-        )
-        mapping_matrix = torch.matmul(self.inverse_kernel.type_as(source_control_points), Y)
-        source_coordinate = torch.matmul(self.target_coordinate_repr.type_as(source_control_points), mapping_matrix)
-        return source_coordinate.view(batch_size, self.target_height, self.target_width, -1)
 
 
 def opencv_tps(img, source, target, mode=1, border_value=0):
@@ -109,30 +48,43 @@ def normalization(points, img_shape):
     return points
 
 
-def tps_grid_torch(img_shape, target, source, device="cpu"):
-    source_ts = torch.tensor(normalization(source, img_shape)).double()
-    target_ts = torch.tensor(normalization(target, img_shape)).double()
+def tps_module_numpy(src_cpts, tar_cpts):
+    assert tar_cpts.ndim == 2
+    assert tar_cpts.shape[1] == 2
+    N = src_cpts.shape[0]
+    src_cpts = src_cpts.astype(np.float32)
+    tar_cpts = tar_cpts.astype(np.float32)
 
-    # warped_grid = TPS()(target_ts.float(), source_ts.float(), img_shape[1], img_shape[0])
-    tps = TPSGridGen(img_shape[0], img_shape[1], target_ts)
-    warp_grid = tps(source_ts[None])
-    return warp_grid.squeeze().detach().numpy()
+    # create padded kernel matrix
+    src_cc_partial_repr = compute_partial_repr(src_cpts, src_cpts)
+    forward_kernel = np.concatenate(
+        (
+            np.concatenate((src_cc_partial_repr, np.ones([N, 1]), src_cpts), axis=1),
+            np.concatenate((np.ones([1, N]), np.zeros([1, 3])), axis=1),
+            np.concatenate((src_cpts.T, np.zeros([2, 3])), axis=1),
+        ),
+        axis=0,
+    )
+    # compute mapping matrix
+    Y = np.concatenate([tar_cpts, np.zeros([3, 2])], axis=0)  # (M+3,2)
+    mapping_matrix = scipy.linalg.solve(forward_kernel, Y)
+    return mapping_matrix
 
 
-def apply_deformation(img, warp_grid, mode="bilinear", padding_mode="border", device="cpu"):
-    if img.ndim == 2:
-        img_ts = torch.tensor(img)[None, None]
-    elif img.ndim == 3:
-        img_ts = torch.tensor(img)[None]
-    else:
-        raise ValueError(f"not supported image shape {img.shape}")
-
-    if not torch.is_tensor(warp_grid):
-        warp_grid = torch.tensor(warp_grid[None])
-    assert warp_grid.size(-1) == 2
-
-    img_ts = F.grid_sample(img_ts.double(), warp_grid, mode=mode, padding_mode=padding_mode, align_corners=False)
-    return img_ts.squeeze().detach().numpy()
+def tps_apply_transform(src_pts, src_cpts, mapping_matrix):
+    """
+    Parameters:
+        src_pts: points to be transformed
+        src_cpts: control points
+    Returns:
+        [None]
+    """
+    assert src_pts.ndim == 2
+    src_pc_partial_repr = compute_partial_repr(src_pts, src_cpts)
+    N = src_pts.shape[0]
+    src_pts_repr = np.concatenate([src_pc_partial_repr, np.ones([N, 1]), src_pts], axis=1)
+    tar_pts = np.matmul(src_pts_repr, mapping_matrix)
+    return tar_pts
 
 
 if __name__ == "__main__":

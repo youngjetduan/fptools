@@ -63,9 +63,7 @@ def draw_orientation(ax, ori, mask=None, factor=8, stride=32, color="lime", line
             )
 
 
-def draw_img_with_orientation(
-    img, ori, save_path, factor=8, stride=16, cmap="gray", vmin=None, vmax=None, mask=None, color="lime", dpi=100
-):
+def draw_img_with_orientation(img, ori, save_path, factor=8, stride=16, cmap="gray", vmin=None, vmax=None, mask=None, color="lime", dpi=100):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -84,15 +82,17 @@ def draw_img_with_orientation(
 
 def draw_minutiae(ax, mnt_lst, arrow_length=15, color="red", linewidth=1.5):
     for mnt in mnt_lst:
-        x, y, ori = mnt[:3]
-        dx, dy = arrow_length * np.cos(ori * np.pi / 180), arrow_length * np.sin(ori * np.pi / 180)
-        ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
-        ax.plot([x, x + dx], [y, y + dy], "-", color=color, linewidth=linewidth)
+        try:
+            x, y, ori = mnt[:3]
+            dx, dy = arrow_length * np.cos(ori * np.pi / 180), arrow_length * np.sin(ori * np.pi / 180)
+            ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
+            ax.plot([x, x + dx], [y, y + dy], "-", color=color, linewidth=linewidth)
+        except:
+            x, y = mnt[:2]
+            ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
 
 
-def draw_minutia_on_finger(
-    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5
-):
+def draw_minutia_on_finger(img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -109,18 +109,17 @@ def draw_minutia_on_finger(
     plt.close(fig)
 
 
-def draw_minutiae_pair(
-    ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5
-):
+def draw_minutiae_pair(ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5):
     img_shape1 = np.array(img1.shape[:2])
     img_shape2 = np.array(img2.shape[:2])
     img_height = max(img_shape1[0], img_shape2[0])
-    img1 = np.pad(img1, ((0, img_height - img_shape1[0])))
-    img2 = np.pad(img2, ((0, img_height - img_shape2[0])))
+    img1 = np.pad(img1, ((0, img_height - img_shape1[0])), mode="edge")
+    img2 = np.pad(img2, ((0, img_height - img_shape2[0])), mode="edge")
     img = np.concatenate((img1, img2), axis=1)
     ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
 
-    mnts2[:, 0] += img_shape1[1]
+    mnts2 = mnts2.copy()
+    mnts2[:, 0] += img1.shape[1]
     for ii in range(len(mnts1)):
         ax.scatter(
             mnts1[ii, 0], mnts1[ii, 1], marker="s", s=5, facecolors="none", edgecolor=markercolor, linewidths=linewidth,
@@ -129,12 +128,7 @@ def draw_minutiae_pair(
             mnts2[ii, 0], mnts2[ii, 1], marker="s", s=5, facecolors="none", edgecolor=markercolor, linewidths=linewidth,
         )
         ax.plot(
-            [mnts1[ii, 0], mnts2[ii, 0]],
-            [mnts1[ii, 1], mnts2[ii, 1]],
-            "-",
-            color=linecolor,
-            markersize=3,
-            markerfacecolor="none",
+            [mnts1[ii, 0], mnts2[ii, 0]], [mnts1[ii, 1], mnts2[ii, 1]], "-", color=linecolor, markersize=3, markerfacecolor="none",
         )
     ax.set_xlim(0, img.shape[1])
     ax.set_ylim(img.shape[0], 0)
@@ -142,33 +136,13 @@ def draw_minutiae_pair(
 
 
 def draw_minutiae_pair_on_finger(
-    img1,
-    img2,
-    mnts1,
-    mnts2,
-    save_path,
-    cmap="gray",
-    vmin=None,
-    vmax=None,
-    markercolor="red",
-    linecolor="green",
-    linewidth=1.5,
+    img1, img2, mnts1, mnts2, save_path, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5,
 ):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
     draw_minutiae_pair(
-        ax,
-        img1,
-        img2,
-        mnts1,
-        mnts2,
-        cmap,
-        vmin,
-        vmax,
-        markercolor=markercolor,
-        linecolor=linecolor,
-        linewidth=linewidth,
+        ax, img1, img2, mnts1, mnts2, cmap, vmin, vmax, markercolor=markercolor, linecolor=linecolor, linewidth=linewidth,
     )
     fig.tight_layout()
     fig.savefig(save_path, bbox_inches="tight")
