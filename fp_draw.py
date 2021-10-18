@@ -119,8 +119,8 @@ def draw_minutiae_pair(
     img_shape1 = np.array(img1.shape[:2])
     img_shape2 = np.array(img2.shape[:2])
     img_height = max(img_shape1[0], img_shape2[0])
-    img1 = np.pad(img1, ((0, img_height - img_shape1[0])))
-    img2 = np.pad(img2, ((0, img_height - img_shape2[0])))
+    img1 = np.pad(img1, ((0, img_height - img_shape1[0])), mode="edge")
+    img2 = np.pad(img2, ((0, img_height - img_shape2[0])), mode="edge")
     img = np.concatenate((img1, img2), axis=1)
     ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
 
