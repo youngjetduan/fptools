@@ -37,9 +37,25 @@ def calc_seg_iou(input, target):
     return iou
 
 
+def intensity_centering(img, mask=None):
+    """normalizing image intensity from (mean, std) to (0,1)
+
+    Parameters:
+        [None]
+    Returns:
+        [None]
+    """
+    if mask is not None:
+        img = (img * 1.0 - img[mask].mean()) / img[mask > 0].std().clip(1e-6, None)
+    else:
+        img = (img * 1.0 - img.mean()) / img.std().clip(1e-6, None)
+
+    return img
+
+
 def intensity_normalization(img, mask=None):
-    """ map intensity to [0,1]
-    
+    """map intensity to [0,1]
+
     Parameters:
         [None]
     Returns:
@@ -54,8 +70,8 @@ def intensity_normalization(img, mask=None):
 
 
 def shape_normalization(img, stride=8):
-    """ padding image to match the stride. Note that it's not always smaller than the previous.
-    
+    """padding image to match the stride. Note that it's not always smaller than the previous.
+
     Parameters:
         [None]
     Returns:
@@ -69,8 +85,8 @@ def shape_normalization(img, stride=8):
 
 
 def croping_image(img, stride=8):
-    """ crop image to match stride. Note that it's always smaller than the previous.
-    
+    """crop image to match stride. Note that it's always smaller than the previous.
+
     Parameters:
         [None]
     Returns:

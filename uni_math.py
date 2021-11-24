@@ -70,8 +70,8 @@ def poolingOverlap(mat, ksize, stride=None, method="max", pad=False):
 
 
 def distance_pc(pts_A, pts_B, ratio_sample=0.05, min_samples=1000, hemi=False):
-    """ distance between two point cloud
-    
+    """distance between two point cloud
+
     Parameters:
         hemi: if unilateral distance
     Returns:
@@ -97,8 +97,8 @@ def distance_pc(pts_A, pts_B, ratio_sample=0.05, min_samples=1000, hemi=False):
 
 
 def estimate_affine_transform(pts_src, pts_tar):
-    """ estimate affine transform based on 3 points only
-    
+    """estimate affine transform based on 3 points only
+
     Parameters:
         [None]
     Returns:
@@ -119,14 +119,14 @@ def estimate_affine_transform(pts_src, pts_tar):
 
 
 def euler_to_R(euler_angle, is_deg=True):
-    """ euler angle to rotation matrix
-    
+    """euler angle to rotation matrix
+
     Parameters:
         euler_angle: [roll, pitch, yaw]
     Returns:
         [None]
     """
-    R = Rotation.from_euler("ZYX", [euler_angle[2], euler_angle[1], euler_angle[0]], degrees=is_deg).as_matrix()
+    R = Rotation.from_euler("ZYX", euler_angle[..., ::-1], degrees=is_deg).as_matrix()
 
     # if is_deg:
     #     roll = euler_angle[0] * np.pi / 180
@@ -141,7 +141,7 @@ def euler_to_R(euler_angle, is_deg=True):
 
 
 def R_to_euler(R, is_deg=True):
-    euler = Rotation.from_matrix(R).as_euler("ZYX", degrees=is_deg)[::-1]
+    euler = Rotation.from_matrix(R).as_euler("ZYX", degrees=is_deg)[..., ::-1]
 
     # roll = np.arctan2(R[2, 1], R[2, 2])
     # pitch = np.arctan2(-R[2, 0], np.sqrt(R[2, 1] ** 2 + R[2, 2] ** 2))
@@ -151,7 +151,7 @@ def R_to_euler(R, is_deg=True):
     #     euler = euler * 180 / np.pi
     # print("self", euler)
 
-    return euler
+    return euler  # roll, pitch, yaw
 
 
 if __name__ == "__main__":

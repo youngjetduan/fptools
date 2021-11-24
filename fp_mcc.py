@@ -33,8 +33,8 @@ def load_mcc_feature(fpath):
 
 
 def poly2mask(polygon, img_shape):
-    """ polygon to mask image
-    
+    """polygon to mask image
+
     Parameters:
         polygon: [N,2]
         img_shape: (width, height)
@@ -118,7 +118,7 @@ class MCC:
             return 1 - np.linalg.norm(c1 - c2) / temp
 
     def compute_similarity_matrix(self, des1, des2):
-        """ compute similarity between two minutiae
+        """compute similarity between two minutiae
 
         Parameters:
             [None]
@@ -164,7 +164,7 @@ class MCC:
         Parameters:
             [None]
         Returns:
-            [None]
+            score, pairs
         """
         # end = time.time()
         S = self.compute_similarity_matrix(des1, des2)
@@ -212,9 +212,7 @@ class MCC:
             ),
         ).astype(int)
         ratio = np.minimum(dist1, dist2) / np.maximum(dist1, dist2).clip(1e-24, None)
-        dist_s = (ratio - self.thresholds["min_dist"][dist_range - 1]) / (
-            1 - self.thresholds["min_dist"][dist_range - 1]
-        )
+        dist_s = (ratio - self.thresholds["min_dist"][dist_range - 1]) / (1 - self.thresholds["min_dist"][dist_range - 1])
         dist_s = dist_s.clip(0, None)
 
         angle_s = 1 - np.abs(normalize_minu_dir(angle1 - angle2)) / self.thresholds["max_angle"][dist_range - 1]
@@ -251,8 +249,8 @@ class MCC:
         return score, pairs
 
     def create_descriptor(self, mnts, img_shape, mask=None, is_save=False, fpath=None):
-        """ create MCC descriptor for input minutia
-        
+        """create MCC descriptor for input minutia
+
         Parameters:
             mnts: [N,3] or [N,4]
             img_shape: (width, height)

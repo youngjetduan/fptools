@@ -114,13 +114,16 @@ def load_singular(fname, return_header=False):
 
 
 def save_minutiae(fname, img_size, core_arr=None, delta_arr=None, kps_arr=None):
-    """ save minutiae and singular points to '.mnt' file
-    
+    """save minutiae and singular points to '.mnt' file
+
     Parameters:
         img_shpae: [width, height]
     Returns:
         [None]
     """
+    if not osp.isdir(osp.dirname(fname)):
+        os.makedirs(osp.dirname(fname))
+
     core_arr = [] if core_arr is None else core_arr
     delta_arr = [] if delta_arr is None else delta_arr
     kps_arr = [] if kps_arr is None else kps_arr
@@ -144,8 +147,8 @@ class Verifinger(_verifinger):
         self._initialize_license()
 
     def fingerprint_matching_single(self, search_dir, search_name, gallery_dir, gallery_name):
-        """ Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
-        
+        """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
+
         Parameters:
             [None]
         Returns:
@@ -154,8 +157,8 @@ class Verifinger(_verifinger):
         return self._fingerprint_matching_single(search_dir, search_name, gallery_dir, gallery_name)
 
     def fingerprint_matching_batch(self, search_paths, gallery_paths, thread_num=8):
-        """ Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
-        
+        """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
+
         Parameters:
             [None]
         Returns:
@@ -164,7 +167,7 @@ class Verifinger(_verifinger):
         return self._fingerprint_matching_batch(search_paths, gallery_paths, thread_num)
 
     def minutia_extraction(self, img_dir, img_name, feat_dir, feat_name="", img_format="png", mnt_format="ISO"):
-        """ set feat_name as "" if you prefer it has the same name as img_name
+        """set feat_name as "" if you prefer it has the same name as img_name
         The Minutia File format:
         img_width
         img_height
@@ -174,7 +177,7 @@ class Verifinger(_verifinger):
         [ core_point_detail ] * num_of_core
         [ delta_point_detail ] * num_of_delta
         [ minutia_point_detail ] * num_of_minutia
-        
+
         Parameters:
             [None]
         Returns:
@@ -185,8 +188,8 @@ class Verifinger(_verifinger):
         return self._minutia_extraction(img_dir, img_name, feat_dir, feat_name, img_format, mnt_format)
 
     def binary_extraction(self, img_dir, img_name, bin_dir, bin_name="", img_format="png"):
-        """ set bin_name as "" if you prefer it has the same name as img_name
-        
+        """set bin_name as "" if you prefer it has the same name as img_name
+
         Parameters:
             [None]
         Returns:
@@ -197,8 +200,8 @@ class Verifinger(_verifinger):
         return self._binary_extraction(img_dir, img_name, bin_dir, bin_name, img_format)
 
     def skeleton_extraction(self, img_dir, img_name, skl_dir, skl_name="", img_format="png"):
-        """ set skl_name as "" if you prefer it has the same name as img_name
-        
+        """set skl_name as "" if you prefer it has the same name as img_name
+
         Parameters:
             [None]
         Returns:
