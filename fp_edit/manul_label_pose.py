@@ -79,13 +79,8 @@ class MainWidget(QWidget):
         """Constructor"""
         super().__init__(Parent)
 
-        self.__img_panel_width = 512
-        self.__img_panel_height = 512
-
-        self.__InitView()
-        self.__SetupConnection()
-
         self.__prefix = prefix
+        self.__name_filter = name_filter
         self.__ext = ext
         self.__pose_prefix = osp.join(prefix + "_feature", "pose_m")
 
@@ -97,10 +92,15 @@ class MainWidget(QWidget):
             QMessageBox.critical(self, "Error", "No image file with specified format is found")
             return
 
-        self.__cur_pose = np.zeros(3)
+        self.__img_panel_width = 512
+        self.__img_panel_height = 512
 
+        self.__InitView()
+        self.__SetupConnection()
+
+        self.__cur_pose = np.zeros(3)
         self.__index = -1
-        self.__is_saved = True
+        self.__is_modifed = False
         self.on_btn_Next_Clicked()
 
     def __InitView(self):
@@ -108,8 +108,22 @@ class MainWidget(QWidget):
         # self.setFixedSize(640, 480)
         self.setWindowTitle("Pose Annotation")
 
+        top_layout = QVBoxLayout(self)
+        top_layout.setSpacing(10)
+
+        sub_layout = QHBoxLayout()
+        sub_layout.setContentsMargins(5, 5, 5, 5)
+        self.__label_prefix = QLabel("Image Filter")
+        self.__label_prefix.setFixedHeight(20)
+        sub_layout.addWidget(self.__label_prefix)
+        self.__edit_prefix = QLineEdit(osp.join(self.__prefix, f"**/{self.__name_filter}.{self.__ext}"))
+        self.__edit_prefix.setFixedHeight(20)
+        self.__edit_prefix.setReadOnly(True)
+        sub_layout.addWidget(self.__edit_prefix)
+        top_layout.addLayout(sub_layout)
+
         # 新建一个水平布局作为本窗体的主布局
-        main_layout = QHBoxLayout(self)
+        main_layout = QHBoxLayout()
         # 设置主布局内边距以及控件间距为10px
         main_layout.setSpacing(10)
 
@@ -117,7 +131,6 @@ class MainWidget(QWidget):
         sub_layout = QVBoxLayout()
         # 设置此子布局和内部控件的间距为5px
         sub_layout.setContentsMargins(5, 5, 5, 5)
-
         # 在主界面左侧放置画板
         self.__img_box = PainterLabel()
         self.__img_box.setGeometry(20, 20, self.__img_panel_width, self.__img_panel_height)
@@ -135,7 +148,6 @@ class MainWidget(QWidget):
         sub_layout = QVBoxLayout()
         # 设置此子布局和内部控件的间距为5px
         sub_layout.setContentsMargins(5, 5, 5, 5)
-
         # image name
         ssub_layout = QHBoxLayout()
         self.__label_img_name = QLabel("Image Name")
@@ -187,6 +199,8 @@ class MainWidget(QWidget):
 
         main_layout.addLayout(sub_layout)
 
+        top_layout.addLayout(main_layout)
+
     @property
     def cur_pose(self):
         return self.__cur_pose
@@ -199,6 +213,7 @@ class MainWidget(QWidget):
             self.__edit_center_y.setText(f"{value[1]:.0f}")
             self.__edit_center_angle.setText(f"{value[2]:.2f}")
             self.__cur_pose = value
+            self.__is_modifed = True
 
     def __SetupConnection(self):
         self.__btn_Prev.clicked.connect(self.on_btn_Prev_Clicked)
@@ -207,23 +222,21 @@ class MainWidget(QWidget):
         self.__img_box.ready.connect(self.on_pose_Changed)
 
     def on_btn_Prev_Clicked(self):
-        if not self.__is_saved:
+        if self.__is_modifed:
             self.on_btn_Save_Clicked()
 
         self.__index = (self.__index - 1) % len(self.__name_lst)
         self.fetch_new_data()
-        self.__is_saved = False
 
     def on_btn_Next_Clicked(self):
-        if not self.__is_saved:
+        if self.__is_modifed:
             self.on_btn_Save_Clicked()
 
         self.__index = (self.__index + 1) % len(self.__name_lst)
         self.fetch_new_data()
-        self.__is_saved = False
 
     def on_btn_Save_Clicked(self):
-        if np.all(self.cur_pose == 0):
+        if not self.__is_modifed or np.all(self.cur_pose == 0):
             # QMessageBox.warning(self, "Warning", "Initialized pose has not been changed")
             return
 
@@ -234,10 +247,10 @@ class MainWidget(QWidget):
                 os.makedirs(osp.dirname(fpath))
             with open(fpath, "w") as fp:
                 fp.write(f"{self.cur_pose[0]:.0f} {self.cur_pose[1]:.0f} {self.cur_pose[2]:.2f}")
-            self.__label_info.setText(f"Save pose to {fpath} done")
+            self.__label_info.setText(f"Save pose to {img_name} done")
         except Exception as ex:
             self.__label_info.setText(ex)
-        self.__is_saved = True
+        self.__is_modifed = False
 
     def on_pose_Changed(self, pose_pts):
         x1, y1 = pose_pts[0]
@@ -257,6 +270,7 @@ class MainWidget(QWidget):
         x2 = x1 - 100 * np.sin(np.deg2rad(self.cur_pose[2]))
         y2 = y1 - 100 * np.cos(np.deg2rad(self.cur_pose[2]))
         self.__img_box.draw_pose((x1, y1), (x2, y2))
+        self.__is_modifed = False
 
     def draw_image(self, path):
         pixmap = QPixmap(path)
@@ -279,8 +293,8 @@ if __name__ == "__main__":
     # Just an example, import this class in your own project, DO NOT MODIFY THIS CODE!
     app = QApplication(sys.argv)
 
-    prefix = "/mnt/data1/hefei_data/processed/dyj_finger_contact/plain"
-    name_filter = "*_0"
+    prefix = "/mnt/data1/hefei_data/processed/dyj_finger_contact/rolled"
+    name_filter = "*"
     main_win = MainWidget(prefix=prefix, name_filter=name_filter, ext="png")
     main_win.show()
 
