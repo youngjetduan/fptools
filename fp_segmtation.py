@@ -22,12 +22,20 @@ from .fp_orientation import calc_orientation_graident
 def ridge_coherence(img, win_size=8, stride=8):
     Gx, Gy = np.gradient(img.astype(np.float32))
     coh = np.sqrt((Gx ** 2 - Gy ** 2) ** 2 + 4 * Gx ** 2 * Gy ** 2)
-    coh = F.avg_pool2d(torch.tensor(coh)[None, None].float(), 2 * win_size - 1, stride=stride, padding=win_size - 1).squeeze().numpy()
+    coh = (
+        F.avg_pool2d(torch.tensor(coh)[None, None].float(), 2 * win_size - 1, stride=stride, padding=win_size - 1)
+        .squeeze()
+        .numpy()
+    )
     return coh
 
 
 def ridge_intensity(img, win_size=8, stride=8):
-    coh = F.avg_pool2d(torch.tensor(img)[None, None].float(), 2 * win_size - 1, stride=stride, padding=win_size - 1).squeeze().numpy()
+    coh = (
+        F.avg_pool2d(torch.tensor(img)[None, None].float(), 2 * win_size - 1, stride=stride, padding=win_size - 1)
+        .squeeze()
+        .numpy()
+    )
     return coh
 
 
@@ -63,23 +71,23 @@ def convex_hull_image(data):
     return mask.T
 
 
-def segmentation_postprocessing(seg, kernel_size=5, stride=8):
+def segmentation_postprocessing(seg, kernel_size=5, stride=8, convex=False):
     selem = np.ones((kernel_size, kernel_size))
     seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
     seg = morphology.remove_small_holes(seg, area_threshold=2000 // stride)
     seg = morphology.remove_small_objects(seg, min_size=1000 // stride)
-    if seg.sum() > 0:
+    if convex and seg.sum() > 0:
         seg = find_largest_connected_region(seg)
         seg = convex_hull_image(seg)
     return seg
 
 
-def segmentation_coherence(img, win_size=16, stride=8, threshold=50):
+def segmentation_coherence(img, win_size=16, stride=8, threshold=50, convex=False):
     # average pooling
     _, coh = calc_orientation_graident(img, win_size, stride)
     seg = coh > threshold
 
-    seg = segmentation_postprocessing(seg, kernel_size=5, stride=stride)
+    seg = segmentation_postprocessing(seg, kernel_size=5, stride=stride, convex=convex)
     return seg
 
 

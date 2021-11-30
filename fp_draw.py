@@ -63,7 +63,9 @@ def draw_orientation(ax, ori, mask=None, factor=8, stride=32, color="lime", line
             )
 
 
-def draw_img_with_orientation(img, ori, save_path, factor=8, stride=16, cmap="gray", vmin=None, vmax=None, mask=None, color="lime", dpi=100):
+def draw_img_with_orientation(
+    img, ori, save_path, factor=8, stride=16, cmap="gray", vmin=None, vmax=None, mask=None, color="lime", dpi=100
+):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -92,7 +94,9 @@ def draw_minutiae(ax, mnt_lst, arrow_length=15, color="red", linewidth=1.5):
             ax.scatter(x, y, marker="s", facecolors="none", edgecolor=color, linewidths=linewidth)
 
 
-def draw_minutia_on_finger(img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5):
+def draw_minutia_on_finger(
+    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5
+):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -109,7 +113,9 @@ def draw_minutia_on_finger(img, mnt_lst, save_path, cmap="gray", vmin=None, vmax
     plt.close(fig)
 
 
-def draw_minutiae_pair(ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5):
+def draw_minutiae_pair(
+    ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5
+):
     img_shape1 = np.array(img1.shape[:2])
     img_shape2 = np.array(img2.shape[:2])
     img_height = max(img_shape1[0], img_shape2[0])
@@ -128,7 +134,12 @@ def draw_minutiae_pair(ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vma
             mnts2[ii, 0], mnts2[ii, 1], marker="s", s=5, facecolors="none", edgecolor=markercolor, linewidths=linewidth,
         )
         ax.plot(
-            [mnts1[ii, 0], mnts2[ii, 0]], [mnts1[ii, 1], mnts2[ii, 1]], "-", color=linecolor, markersize=3, markerfacecolor="none",
+            [mnts1[ii, 0], mnts2[ii, 0]],
+            [mnts1[ii, 1], mnts2[ii, 1]],
+            "-",
+            color=linecolor,
+            markersize=3,
+            markerfacecolor="none",
         )
     ax.set_xlim(0, img.shape[1])
     ax.set_ylim(img.shape[0], 0)
@@ -136,7 +147,17 @@ def draw_minutiae_pair(ax, img1, img2, mnts1, mnts2, cmap="gray", vmin=None, vma
 
 
 def draw_minutiae_pair_on_finger(
-    img1, img2, mnts1, mnts2, save_path, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5,
+    img1,
+    img2,
+    mnts1,
+    mnts2,
+    save_path,
+    cmap="gray",
+    vmin=None,
+    vmax=None,
+    markercolor="red",
+    linecolor="green",
+    linewidth=1.5,
 ):
     # plot
     fig = plt.figure()
