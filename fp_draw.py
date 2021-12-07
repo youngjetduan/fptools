@@ -41,8 +41,8 @@ def draw_img_with_pose(img, pose, save_path, cmap="gray", vmin=None, vmax=None, 
 
 
 def draw_orientation(ax, ori, mask=None, factor=8, stride=32, color="lime", linewidth=1.5):
-    """ draw orientation filed
-    
+    """draw orientation filed
+
     Parameters:
         [None]
     Returns:
@@ -128,10 +128,22 @@ def draw_minutiae_pair(
     mnts2[:, 0] += img1.shape[1]
     for ii in range(len(mnts1)):
         ax.scatter(
-            mnts1[ii, 0], mnts1[ii, 1], marker="s", s=5, facecolors="none", edgecolor=markercolor, linewidths=linewidth,
+            mnts1[ii, 0],
+            mnts1[ii, 1],
+            marker="s",
+            s=5,
+            facecolors="none",
+            edgecolor=markercolor,
+            linewidths=linewidth,
         )
         ax.scatter(
-            mnts2[ii, 0], mnts2[ii, 1], marker="s", s=5, facecolors="none", edgecolor=markercolor, linewidths=linewidth,
+            mnts2[ii, 0],
+            mnts2[ii, 1],
+            marker="s",
+            s=5,
+            facecolors="none",
+            edgecolor=markercolor,
+            linewidths=linewidth,
         )
         ax.plot(
             [mnts1[ii, 0], mnts2[ii, 0]],
@@ -158,14 +170,30 @@ def draw_minutiae_pair_on_finger(
     markercolor="red",
     linecolor="green",
     linewidth=1.5,
+    text_label=None,
 ):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
     draw_minutiae_pair(
-        ax, img1, img2, mnts1, mnts2, cmap, vmin, vmax, markercolor=markercolor, linecolor=linecolor, linewidth=linewidth,
+        ax,
+        img1,
+        img2,
+        mnts1,
+        mnts2,
+        cmap,
+        vmin,
+        vmax,
+        markercolor=markercolor,
+        linecolor=linecolor,
+        linewidth=linewidth,
     )
+    if text_label is not None:
+        plt.text(10, 10, text_label, size=10, color="g")
     fig.tight_layout()
+
+    if not osp.isdir(osp.dirname(save_path)):
+        os.makedirs(osp.dirname(save_path))
     fig.savefig(save_path, bbox_inches="tight")
     plt.close(fig)
 
