@@ -10,6 +10,7 @@ from glob import glob
 import shutil
 import imageio
 import scipy.io as sio
+import cv2
 
 
 def mkdir(path):
@@ -30,9 +31,12 @@ def re_mkdir(path):
         pass
 
 
-def imwrite(path, img):
+def imwrite(path, img, is_cv=False):
     mkdir(osp.dirname(path))
-    imageio.imwrite(path, np.rint(img).astype(np.uint8))
+    if is_cv:
+        cv2.imwrite(path, img)
+    else:
+        imageio.imwrite(path, np.rint(img).astype(np.uint8))
 
 
 def matwrite(path, mat):

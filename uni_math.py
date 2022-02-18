@@ -154,5 +154,23 @@ def R_to_euler(R, is_deg=True):
     return euler  # roll, pitch, yaw
 
 
+def custom_R2Euler(R, degrees=True):
+    sy = np.sqrt(R[..., 0, 0] ** 2 + R[..., 1, 0] ** 2)
+    singular = sy < 1e-6
+    if singular:
+        x = np.arctan2(-R[..., 1, 2], R[..., 1, 1])
+        y = np.arctan2(-R[..., 2, 0], sy)
+        z = 0
+    else:
+        x = np.arctan2(R[..., 2, 1], R[..., 2, 2])
+        y = np.arctan2(-R[..., 2, 0], sy)
+        z = np.arctan2(R[..., 1, 0], R[..., 0, 0])
+
+    if degrees:
+        return np.rad2deg(np.stack((z, y, x), -1))
+    else:
+        return np.stack((z, y, x), -1)
+
+
 if __name__ == "__main__":
     prefix = ""

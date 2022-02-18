@@ -298,7 +298,7 @@ if __name__ == "__main__":
     # Just an example, import this class in your own project, DO NOT MODIFY THIS CODE!
     app = QApplication(sys.argv)
 
-    prefix = "/mnt/data1/hefei_data/processed/dyj_finger_contact/rolled"
+    prefix = "/home/duanyongjie/data/finger/ContactSerials/Hefei/rolled"
     name_filter = "*"
     main_win = MainWidget(prefix=prefix, name_filter=name_filter, ext="png")
     main_win.show()

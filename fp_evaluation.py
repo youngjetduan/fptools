@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 
 
 def compute_roc(score_mat, num_steps=100):
-    """ compute ROC curve.
-    
+    """compute ROC curve.
+
     Parameters:
         score_mat: a dict contains {"genuine": ..., "impostor": ...}
     Returns:
@@ -33,9 +33,7 @@ def compute_roc(score_mat, num_steps=100):
                 max(genuine_scores.max(), impostor_scores.max()),
                 num_steps // 2,
             ),
-            np.random.choice(
-                np.concatenate((genuine_scores, impostor_scores)), num_steps - num_steps // 2, replace=False
-            ),
+            np.random.choice(np.concatenate((genuine_scores, impostor_scores)), num_steps - num_steps // 2, replace=False),
         )
     )
     threshs = np.sort(threshs)
@@ -47,23 +45,31 @@ def compute_roc(score_mat, num_steps=100):
 
 
 def compute_cmc(score_mat, max_rank=30):
-    """ compute rank array for cmc curve. Note that search names must the subset of file names!
-    
+    """compute rank array for cmc curve. Note that search names must the subset of file names!
+
     Parameters:
-        score_mat: a dict contains {"score": ..., "search_names": ..., "file_names": ...}
+        score_mat: a dict contains {"score": ..., "genuine_scores": ...}
     Returns:
         rank_arr: length equal to max_rank
     """
     score_arr = score_mat["score"]
-    search_names = np.array(score_mat["search_names"])
-    file_names = np.array(score_mat["file_names"])
+    genuine_scores = score_arr["genuine_scores"]
 
-    score_arr = np.argsort(score_arr, axis=1)[:, ::-1]
-    sorted_names = file_names[score_arr[:, :max_rank]]
+    idx_arr = (score_arr > genuine_scores.reshape(1, -1)).sum(-1)
+    rank_arr = np.zeros(max_rank)
+    N = len(genuine_scores)
+    for ii in range(max_rank):
+        rank_arr[ii] = (idx_arr <= ii).sum() * 1.0 / N
 
-    rank_arr = 1 * (sorted_names == search_names[:, None])
-    rank_arr = np.cumsum(rank_arr, axis=1)
-    rank_arr = rank_arr.sum(axis=0) * 1.0 / len(search_names)
+    # search_names = np.array(score_mat["search_names"])
+    # file_names = np.array(score_mat["file_names"])
+
+    # score_arr = np.argsort(score_arr, axis=1)[:, ::-1]
+    # sorted_names = file_names[score_arr[:, :max_rank]]
+
+    # rank_arr = 1 * (sorted_names == search_names[:, None])
+    # rank_arr = np.cumsum(rank_arr, axis=1)
+    # rank_arr = rank_arr.sum(axis=0) * 1.0 / len(search_names)
 
     return rank_arr
 
