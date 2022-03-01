@@ -62,7 +62,7 @@ def intensity_centering(img, mask=None):
     return img
 
 
-def intensity_normalization(img, mask=None):
+def intensity_normalization(img, mask=None, norm_type="min-max"):
     """map intensity to [0,1]
 
     Parameters:
@@ -70,10 +70,16 @@ def intensity_normalization(img, mask=None):
     Returns:
         [None]
     """
-    if mask is not None:
-        img = (img * 1.0 - img[mask > 0].min()) / (img[mask > 0].max() - img[mask > 0].min()).clip(1e-6, None)
-    else:
-        img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    if norm_type == "min-max":
+        if mask is not None:
+            img = (img * 1.0 - img[mask > 0].min()) / (img[mask > 0].max() - img[mask > 0].min()).clip(1e-6, None)
+        else:
+            img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
+    elif norm_type == "gaussian":
+        if mask is not None:
+            img = (img * 1.0 - img[mask > 0].mean()) / img[mask > 0].std().clip(1e-6, None)
+        else:
+            img = (img * 1.0 - img.mean()) / img.std().clip(1e-6, None)
     img = img.clip(0, 1)
     return img
 

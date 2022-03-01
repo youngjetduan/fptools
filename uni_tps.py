@@ -48,7 +48,7 @@ def normalization(points, img_shape):
     return points
 
 
-def tps_module_numpy(src_cpts, tar_cpts):
+def tps_module_numpy(src_cpts, tar_cpts, Lambda=0):
     assert tar_cpts.ndim == 2
     assert tar_cpts.shape[1] == 2
     N = src_cpts.shape[0]
@@ -56,7 +56,7 @@ def tps_module_numpy(src_cpts, tar_cpts):
     tar_cpts = tar_cpts.astype(np.float32)
 
     # create padded kernel matrix
-    src_cc_partial_repr = compute_partial_repr(src_cpts, src_cpts)
+    src_cc_partial_repr = compute_partial_repr(src_cpts, src_cpts) + Lambda * np.eye(N)
     forward_kernel = np.concatenate(
         (
             np.concatenate((src_cc_partial_repr, np.ones([N, 1]), src_cpts), axis=1),

@@ -85,16 +85,22 @@ def load_minutiae_complete(fname, return_header=False):
 
 
 def load_minutiae(fname, return_header=False):
-    num_sp = np.loadtxt(fname, skiprows=2, max_rows=2)
-    mnt_arr = np.loadtxt(fname, skiprows=5 + num_sp.sum().astype(int))
+    try:
+        num_sp = np.loadtxt(fname, skiprows=2, max_rows=2)
+        mnt_arr = np.loadtxt(fname, skiprows=5 + num_sp.sum().astype(int))
 
-    mnt_arr = pts_normalization(mnt_arr)
+        mnt_arr = pts_normalization(mnt_arr)
 
-    if return_header:
-        header = np.loadtxt(fname, max_rows=2).astype(int)
-        return mnt_arr, header
-    else:
-        return mnt_arr
+        if return_header:
+            header = np.loadtxt(fname, max_rows=2).astype(int)
+            return mnt_arr, header
+        else:
+            return mnt_arr
+    except:
+        if return_header:
+            return None, None
+        else:
+            return None
 
 
 def load_singular(fname, return_header=False):
@@ -165,6 +171,18 @@ class Verifinger(_verifinger):
             scores: N_search, N_gallery
         """
         return self._fingerprint_matching_batch(search_paths, gallery_paths, thread_num)
+
+    def quality_score(self, img_dir, img_name, img_format="png"):
+        """calculate fingerprint quality score, [0, 100], -1 means quality score can not be calculated
+
+        Parameters:
+            [None]
+        Returns:
+            quality_score
+        """
+        score = self._quality_score(img_dir, img_name, img_format)
+        score = score if score <= 100 else -1
+        return score
 
     def minutia_extraction(self, img_dir, img_name, feat_dir, feat_name="", img_format="png", mnt_format="ISO"):
         """set feat_name as "" if you prefer it has the same name as img_name

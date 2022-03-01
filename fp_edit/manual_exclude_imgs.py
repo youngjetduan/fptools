@@ -36,7 +36,7 @@ class MainWidget(QWidget):
         self.__prefix = prefix
         self.__name_filter = name_filter
         self.__ext = ext
-        self.__exclude_fpath = prefix + "_exclude.txt"
+        self.__exclude_fpath = osp.join(osp.dirname(prefix), "exclude.txt")
 
         self.__name_lst = glob(osp.join(prefix, f"**/{name_filter}.{ext}"), recursive=True)
         self.__name_lst = [x.replace(f"{prefix}/", "").replace(f".{ext}", "") for x in self.__name_lst]
@@ -232,7 +232,7 @@ if __name__ == "__main__":
     # Just an example, import this class in your own project, DO NOT MODIFY THIS CODE!
     app = QApplication(sys.argv)
 
-    prefix = "/mnt/data1/hefei_data/processed/dyj_finger_contact/align/mosaic_plain"
+    prefix = "/home/duanyongjie/data/finger/ContactSerials/Hefei/align/dense"
     name_filter = "*"
     main_win = MainWidget(prefix=prefix, name_filter=name_filter, ext="png")
     main_win.show()
