@@ -13,6 +13,15 @@ from glob import glob
 from scipy.ndimage import distance_transform_edt
 
 
+def affine_input_coordinate(y, scale=1.0, theta=0.0, trans_1=np.zeros(2), trans_2=np.zeros(2)):
+    """get input coordinates (x) which are transformed to out_coord (y): y = s * (R(x + trans1) + trans2), x \in (M,2)"""
+    theta = np.deg2rad(theta)
+    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    arr_shape = y.shape
+    x = (y.reshape(-1, 2) / scale - trans_2[None]).dot(R) - trans_1[None]
+    return x.reshape(*arr_shape)
+
+
 def generate_grid(shape):
     grid = np.stack(np.meshgrid(*[np.arange(x) for x in shape], indexing="ij"))
     return grid
