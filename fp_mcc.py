@@ -159,6 +159,28 @@ class MCC:
         dist = distance.squareform(distance.pdist(mnts[:, :2]))
         return dist, angle, r_angle
 
+    def fingerprint_matching_single(
+        self,
+        dir1,
+        name1,
+        dir2,
+        name2,
+        img_shape1=(800, 750),
+        img_shape2=(800, 750),
+        mask1=None,
+        mask2=None,
+        is_save1=False,
+        is_save2=False,
+        fpath1=None,
+        fpath2=None,
+    ):
+        mnts1 = load_minutiae(osp.join(dir1, name1 + ".mnt"))
+        mnts2 = load_minutiae(osp.join(dir2, name2 + ".mnt"))
+        des1 = self.create_descriptor(mnts1, img_shape1, mask=mask1, is_save=is_save1, fpath=fpath1)
+        des2 = self.create_descriptor(mnts2, img_shape2, mask=mask2, is_save=is_save2, fpath=fpath2)
+        score, pairs = self.fingerprint_matching(mnts1, mnts2, des1, des2)
+        return score, pairs
+
     def fingerprint_matching(self, mnts1, mnts2, des1, des2):
         """
         Parameters:
