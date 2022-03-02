@@ -11,6 +11,7 @@ import os.path as osp
 import numpy as np
 from glob import glob
 from ctypes import cdll
+import subprocess
 
 # server 27
 # neu_dir = "/mnt/data5/fptools/Verifinger"
@@ -150,7 +151,7 @@ def save_minutiae(fname, img_size, core_arr=None, delta_arr=None, kps_arr=None):
 class Verifinger(_verifinger):
     def __init__(self):
         super(Verifinger, self).__init__()
-        self._initialize_license()
+        # self._initialize_license()
 
     def fingerprint_matching_single(self, search_dir, search_name, gallery_dir, gallery_name):
         """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
