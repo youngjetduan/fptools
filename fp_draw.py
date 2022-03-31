@@ -124,8 +124,6 @@ def draw_minutiae_pair(
     img = np.concatenate((img1, img2), axis=1)
     ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
 
-    mnts2 = mnts2.copy()
-    mnts2[:, 0] += img1.shape[1]
     for ii in range(len(mnts1)):
         ax.scatter(
             mnts1[ii, 0],
@@ -137,7 +135,7 @@ def draw_minutiae_pair(
             linewidths=linewidth,
         )
         ax.scatter(
-            mnts2[ii, 0],
+            mnts2[ii, 0] + img1.shape[1],
             mnts2[ii, 1],
             marker="s",
             s=5,
@@ -146,15 +144,15 @@ def draw_minutiae_pair(
             linewidths=linewidth,
         )
         ax.plot(
-            [mnts1[ii, 0], mnts2[ii, 0]],
+            [mnts1[ii, 0], mnts2[ii, 0] + img1.shape[1]],
             [mnts1[ii, 1], mnts2[ii, 1]],
             "-",
             color=linecolor,
             markersize=3,
             markerfacecolor="none",
         )
-    ax.set_xlim(0, img.shape[1])
-    ax.set_ylim(img.shape[0], 0)
+    # ax.set_xlim(0, img.shape[1])
+    # ax.set_ylim(img.shape[0], 0)
     ax.set_axis_off()
 
 

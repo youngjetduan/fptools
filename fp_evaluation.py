@@ -12,35 +12,79 @@ import numpy as np
 from glob import glob
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+import seaborn
 
 
-def compute_roc(score_mat, num_steps=100):
-    """compute ROC curve.
+def draw_distribution(ax, scores, label=None, color="r", linestyle="-", linewidth=1.5):
+    """draw matching score distribution
+
+    Parameters:
+        scores
+    Returns:
+        [None]
+    """
+    scores = scores.astype(np.float32).flatten()
+    seaborn.kdeplot(scores, shade=False, label=label, color=color, linestyle=linestyle, linewidth=linewidth, ax=ax)
+
+
+def draw_distribution2(ax, score_mat, linewidth=1.5):
+    """draw matching score distribution
 
     Parameters:
         score_mat: a dict contains {"genuine": ..., "impostor": ...}
     Returns:
+        [None]
+    """
+    genuine_scores = np.array(score_mat["genuine"]).astype(np.float32).flatten()
+    impostor_scores = np.array(score_mat["impostor"]).astype(np.float32).flatten()
+
+    seaborn.kdeplot(genuine_scores, shade=False, label="Genuine", linewidth=linewidth, ax=ax)
+    ax2 = ax.twinx()
+    seaborn.kdeplot(impostor_scores, shade=False, label="Impostor", linewidth=linewidth, ax=ax2)
+
+
+def compute_roc(score_mat, num_steps=100, gms_only=False):
+    """compute ROC curve.
+
+    Parameters:
+        score_mat: a dict contains {"genuine": ..., "impostor": ...}
+        gms_only: generally for VeriFinger, only genunie scores are required
+    Returns:
         rate_arr: [false-positive-rate; true-positive-rate]
     """
-    genuine_scores = score_mat["genuine"].astype(np.float32).flatten()
-    impostor_scores = score_mat["impostor"].astype(np.float32).flatten()
-    num_steps = min(num_steps, len(genuine_scores) + len(impostor_scores))
+    genuine_scores = np.array(score_mat["genuine"]).astype(np.float32).flatten()
 
-    threshs = np.concatenate(
-        (
-            np.linspace(
-                min(genuine_scores.min(), impostor_scores.min()),
-                max(genuine_scores.max(), impostor_scores.max()),
-                num_steps // 2,
-            ),
-            np.random.choice(np.concatenate((genuine_scores, impostor_scores)), num_steps - num_steps // 2, replace=False),
+    if gms_only:
+        num_steps = min(num_steps, len(genuine_scores))
+        rate_arr = np.zeros([2, num_steps])
+
+        rate_arr[0] = np.linspace(-8, 0, num_steps)
+        threshs = -rate_arr[0] * 12
+        for ii, c_th in enumerate(threshs):
+            rate_arr[1, ii] = (genuine_scores >= c_th).sum() * 1.0 / len(genuine_scores)
+        rate_arr[0] = 10 ** rate_arr[0]
+    else:
+        impostor_scores = np.array(score_mat["impostor"]).astype(np.float32).flatten()
+        num_steps = min(num_steps, len(genuine_scores) + len(impostor_scores))
+        rate_arr = np.zeros([2, num_steps])
+
+        threshs = np.concatenate(
+            (
+                np.linspace(
+                    min(genuine_scores.min(), impostor_scores.min()),
+                    max(genuine_scores.max(), impostor_scores.max()),
+                    num_steps // 2,
+                ),
+                np.random.choice(
+                    np.concatenate((genuine_scores, impostor_scores)), num_steps - num_steps // 2, replace=False
+                ),
+            )
         )
-    )
-    threshs = np.sort(threshs)
-    rate_arr = np.zeros([2, num_steps])
-    for ii, c_th in enumerate(threshs):
-        rate_arr[0, ii] = (impostor_scores >= c_th).sum() * 1.0 / len(impostor_scores)
-        rate_arr[1, ii] = (genuine_scores >= c_th).sum() * 1.0 / len(genuine_scores)
+        threshs = np.sort(threshs)
+        for ii, c_th in enumerate(threshs):
+            rate_arr[0, ii] = (impostor_scores >= c_th).sum() * 1.0 / len(impostor_scores)
+            rate_arr[1, ii] = (genuine_scores >= c_th).sum() * 1.0 / len(genuine_scores)
+
     return rate_arr
 
 
@@ -82,14 +126,55 @@ def draw_roc(ax, rate_arr, profile="k-", linewidth=1.5, label=""):
     ax.set_title("ROC curve using Verifinger")
 
 
-def draw_det(ax, rate_arr, profile="k-", linewidth=1.5, label=""):
+def draw_det(ax, rate_arr, profile="k-", linewidth=2, label=""):
     ax.plot(rate_arr[0], 1 - rate_arr[1], profile, linewidth=linewidth, label=label)
+
+
+def draw_det_lines(ax, title="DET curve using Verifinger", xlim=[0, 1], ylim=[0, 1]):
+    ax.set_xscale("log")
+    ax.set_xlabel("FMR")
+    ax.set_ylabel("FNMR")
+    ax.set_title(title)
+    ax.grid(which="minor", axis="both", linestyle="--", linewidth=0.5)
+
+    ax.legend(loc="best")
+
+    ax.set_xlim([xlim[0], xlim[1]])
+    ax.set_ylim([ylim[0], ylim[1]])
+
+
+def draw_det_log_lines(ax, title="DET curve using Verifinger", xlim=[1e-4, 1], ylim=[1e-3, 1]):
+
+    # EER line
+    points = np.array([-4, 1])
+    ax.plot(points, points, linewidth=1, linestyle="-", color="k")
+
+    # draw wide grid lines
+    for ii in range(-3, 1):
+        y = np.array([np.power(10, 1.0 * ii), np.power(10, 1.0 * ii)])
+        x = np.array([np.power(10, -5.0), np.power(10, 0)])
+        ax.plot(x, y, linewidth=1, linestyle="-", color="k")
+    for jj in range(-4, 1):
+        y = np.array([np.power(10, -4.0), np.power(10, 0)])
+        x = np.array([np.power(10, 1.0 * jj), np.power(10, 1.0 * jj)])
+        ax.plot(x, y, linewidth=1, linestyle="-", color="k")
+
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("FMR")
     ax.set_ylabel("FNMR")
-    ax.grid("on", linestyle="--")
-    ax.set_title("DET curve using Verifinger")
+    ax.set_title(title)
+    ax.grid(which="minor", axis="both", linestyle="--", linewidth=0.5)
+
+    ax.legend(loc="lower left")
+
+    ax.text(np.power(10, -3.95), np.power(10, -0.75), "FMR10000", color="darkred", rotation=90)
+    ax.text(np.power(10, -2.95), np.power(10, -0.75), "FMR1000", color="darkred", rotation=90)
+    ax.text(np.power(10, -1.95), np.power(10, -0.75), "FMR100", color="darkred", rotation=90)
+    ax.text(np.power(10, -0.95), np.power(10, -0.75), "EER", color="darkred", rotation=45)
+
+    ax.set_xlim([xlim[0], xlim[1]])
+    ax.set_ylim([ylim[0], ylim[1]])
 
 
 def draw_cmc(ax, rank_arr, profile="k-s", linewidth=1.5, label=""):

@@ -12,6 +12,7 @@ import numpy as np
 from glob import glob
 from ctypes import cdll
 import subprocess
+import warnings
 
 # server 27
 # neu_dir = "/mnt/data5/fptools/Verifinger"
@@ -23,16 +24,31 @@ cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_python37.so"))
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_numpy37.so"))
 sys.path.append(osp.join(neu_dir, "Verifinger"))
 
-from _verifinger import _verifinger
+# from _verifinger import _verifinger, _fingerprint_matching_single, _quality_score, _minutia_extraction
+import _verifinger
+
+sys.path.append(osp.dirname(osp.abspath(__file__)))
+from uni_io import mkdir
 
 
 def save_pair_file(fname, score, pairs):
+    mkdir(osp.dirname(fname))
     with open(fname, "w") as fp:
         fp.write("# score, num_pairs, pairs\n")
         fp.write(f"{score:.3f}\n")
         fp.write(f"{len(pairs)}\n")
         for c_pair in pairs:
             fp.write(f"{c_pair[0]} {c_pair[1]}\n")
+
+
+def load_pair_file(fname):
+    warnings.filterwarnings("error")
+    try:
+        score = np.loadtxt(fname, skiprows=1, max_rows=1)
+        pairs = np.loadtxt(fname, skiprows=3)
+        return score.item(), pairs
+    except UserWarning:
+        return 0, np.array([])
 
 
 def load_neu_dat(fname):
@@ -86,6 +102,13 @@ def load_minutiae_complete(fname, return_header=False):
 
 
 def load_minutiae(fname, return_header=False):
+    """load minutiae file
+
+    Parameters:
+        [None]
+    Returns:
+        mnt_array[, img_size(width, height)]
+    """
     try:
         num_sp = np.loadtxt(fname, skiprows=2, max_rows=2)
         mnt_arr = np.loadtxt(fname, skiprows=5 + num_sp.sum().astype(int))
@@ -148,10 +171,10 @@ def save_minutiae(fname, img_size, core_arr=None, delta_arr=None, kps_arr=None):
             fp.write("\n")
 
 
-class Verifinger(_verifinger):
+class Verifinger(_verifinger._verifinger):
     def __init__(self):
         super(Verifinger, self).__init__()
-        # self._initialize_license()
+        self._initialize_license()
 
     def fingerprint_matching_single(self, search_dir, search_name, gallery_dir, gallery_name):
         """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
@@ -200,11 +223,13 @@ class Verifinger(_verifinger):
         Parameters:
             [None]
         Returns:
-            [None]
+            quality_score
         """
         if len(feat_name) == 0:
             feat_name = img_name
-        return self._minutia_extraction(img_dir, img_name, feat_dir, feat_name, img_format, mnt_format)
+        score = self._minutia_extraction(img_dir, img_name, feat_dir, feat_name, img_format, mnt_format)
+        score = score if score <= 100 else -1
+        return score
 
     def binary_extraction(self, img_dir, img_name, bin_dir, bin_name="", img_format="png"):
         """set bin_name as "" if you prefer it has the same name as img_name
@@ -232,3 +257,84 @@ class Verifinger(_verifinger):
 
     def __del__(self):
         self._exit()
+
+
+def fingerprint_matching_single(search_path, gallery_path):
+    """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
+
+    Parameters:
+        [None]
+    Returns:
+        score [, pairs]
+    """
+    return _verifinger._fingerprint_matching_single(
+        osp.dirname(search_path), osp.basename(search_path), osp.dirname(gallery_path), osp.basename(gallery_path)
+    )
+
+
+def quality_score(img_path, img_format="png"):
+    """calculate fingerprint quality score, [0, 100], -1 means quality score can not be calculated
+
+    Parameters:
+        [None]
+    Returns:
+        quality_score
+    """
+    score = _verifinger._quality_score(osp.dirname(img_path), osp.basename(img_path), img_format)
+    score = score if score <= 100 else -1
+    return score
+
+
+def minutia_extraction(img_path, feat_path, img_format="png", mnt_format="ISO"):
+    """set feat_name as "" if you prefer it has the same name as img_name
+    The Minutia File format:
+    img_width
+    img_height
+    num_of_core
+    num_of_delta
+    num_of_minutia
+    [ core_point_detail ] * num_of_core
+    [ delta_point_detail ] * num_of_delta
+    [ minutia_point_detail ] * num_of_minutia
+
+    Parameters:
+        [None]
+    Returns:
+        quality_score
+    """
+    score = _verifinger._minutia_extraction(
+        osp.dirname(img_path),
+        osp.basename(img_path),
+        osp.dirname(feat_path),
+        osp.basename(feat_path),
+        img_format,
+        mnt_format,
+    )
+    score = score if score <= 100 else -1
+    return score
+
+
+def binary_extraction(img_path, bin_path, img_format="png"):
+    """set bin_name as "" if you prefer it has the same name as img_name
+
+    Parameters:
+        [None]
+    Returns:
+        [None]
+    """
+    return _verifinger._binary_extraction(
+        osp.dirname(img_path), osp.basename(img_path), osp.dirname(bin_path), osp.basename(bin_path), img_format
+    )
+
+
+def skeleton_extraction(img_path, skl_path, img_format="png"):
+    """set skl_name as "" if you prefer it has the same name as img_name
+
+    Parameters:
+        [None]
+    Returns:
+        [None]
+    """
+    return _verifinger._skeleton_extraction(
+        osp.dirname(img_path), osp.basename(img_path), osp.dirname(skl_path), osp.basename(skl_path), img_format
+    )

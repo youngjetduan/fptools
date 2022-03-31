@@ -26,6 +26,19 @@ from .uni_io import mkdir
 #                 fp.write(f"{cur[0]} {cur[1]} {2 * np.pi - cur[2] * np.pi/180}\n")
 
 
+def solve_rigid_transformation(mnts1, mnts2):
+    mnts1_mean = mnts1.mean(0)
+    mnts2_mean = mnts2.mean(0)
+    mnts1_c = mnts1 - mnts1_mean[None]
+    mnts2_c = mnts2 - mnts2_mean[None]
+
+    cov = np.dot(mnts1_c.T, mnts2_c)
+    U, S, Vh = np.linalg.svd(cov)
+    R = Vh.T.dot(U.T)
+    t = mnts2_mean - R.dot(mnts1_mean)
+    return R, t
+
+
 def generate_heatmap(img_shape, kps, factor=8, radius=3):
     heatmap = np.zeros(img_shape)
     for kp in kps:
@@ -138,7 +151,7 @@ def save_SURF(fname, kps, des):
 
 
 def load_SURF(fname):
-    """ Read feature properties and return in matrix form. """
+    """Read feature properties and return in matrix form."""
     if os.path.getsize(fname) <= 0:
         return np.array([]), np.array([])
 

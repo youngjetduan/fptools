@@ -40,8 +40,8 @@ def ridge_intensity(img, win_size=8, stride=8):
 
 
 def segmentation_clustering(samples):
-    """ segmentation using cluster based method
-    
+    """segmentation using cluster based method
+
     Parameters:
         samples: (N, M)
     Returns:
@@ -84,7 +84,8 @@ def segmentation_postprocessing(seg, kernel_size=5, stride=8, convex=False):
 
 def segmentation_coherence(img, win_size=16, stride=8, threshold=50, convex=False):
     # average pooling
-    _, coh = calc_orientation_graident(img, win_size, stride)
+    _, coh = calc_orientation_graident(img, win_size, 8)
+    coh = ndi.zoom(coh, (img.shape[0] * 1.0 / coh.shape[0], img.shape[1] * 1.0 / coh.shape[1]), order=1)
     seg = coh > threshold
 
     seg = segmentation_postprocessing(seg, kernel_size=5, stride=stride, convex=convex)

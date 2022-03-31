@@ -75,7 +75,7 @@ def intensity_normalization(img, mask=None, norm_type="min-max"):
             img = (img * 1.0 - img[mask > 0].min()) / (img[mask > 0].max() - img[mask > 0].min()).clip(1e-6, None)
         else:
             img = (img * 1.0 - img.min()) / (img.max() - img.min()).clip(1e-6, None)
-    elif norm_type == "gaussian":
+    elif norm_type == "mean-std":
         if mask is not None:
             img = (img * 1.0 - img[mask > 0].mean()) / img[mask > 0].std().clip(1e-6, None)
         else:

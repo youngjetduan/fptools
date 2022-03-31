@@ -188,86 +188,92 @@ class MCC:
         Returns:
             score, pairs
         """
-        # end = time.time()
-        S = self.compute_similarity_matrix(des1, des2)
-        # end = time.time() - end
-        # print(f"=> similarity time: {end:.3f}s")
+        try:
+            # end = time.time()
+            S = self.compute_similarity_matrix(des1, des2)
+            # end = time.time() - end
+            # print(f"=> similarity time: {end:.3f}s")
 
-        th = 0
-        # top max_n for each mnt1
-        max_n = min(2, S.shape[1])
-        indices11 = np.arange(S.shape[0]).repeat(max_n, axis=-1).reshape(-1)
-        indices21 = np.argsort(S, axis=1)[:, : -max_n - 1 : -1].reshape(-1)
-        idx_mask = S[indices11, indices21] > th
-        indices11 = indices11[idx_mask]
-        indices21 = indices21[idx_mask]
-        # top max_n for each mnt2
-        max_n = min(2, S.shape[0])
-        indices12 = np.argsort(S, axis=0)[: -max_n - 1 : -1, :].reshape(-1)
-        indices22 = np.arange(S.shape[1])[None].repeat(max_n, axis=0).reshape(-1)
-        idx_mask = S[indices12, indices22] > th
-        indices12 = indices12[idx_mask]
-        indices22 = indices22[idx_mask]
-        # combination
-        indices1 = np.concatenate((indices11, indices12))
-        indices2 = np.concatenate((indices21, indices22))
-        indices = list(set([(x1, x2) for x1, x2 in zip(indices1, indices2)]))
-        indices1, indices2 = map(list, zip(*indices))
-        indices1 = np.array(indices1)
-        indices2 = np.array(indices2)
+            th = 0
+            # top max_n for each mnt1
+            max_n = min(2, S.shape[1])
+            indices11 = np.arange(S.shape[0]).repeat(max_n, axis=-1).reshape(-1)
+            indices21 = np.argsort(S, axis=1)[:, : -max_n - 1 : -1].reshape(-1)
+            idx_mask = S[indices11, indices21] > th
+            indices11 = indices11[idx_mask]
+            indices21 = indices21[idx_mask]
+            # top max_n for each mnt2
+            max_n = min(2, S.shape[0])
+            indices12 = np.argsort(S, axis=0)[: -max_n - 1 : -1, :].reshape(-1)
+            indices22 = np.arange(S.shape[1])[None].repeat(max_n, axis=0).reshape(-1)
+            idx_mask = S[indices12, indices22] > th
+            indices12 = indices12[idx_mask]
+            indices22 = indices22[idx_mask]
+            # combination
+            indices1 = np.concatenate((indices11, indices12))
+            indices2 = np.concatenate((indices21, indices22))
+            indices = list(set([(x1, x2) for x1, x2 in zip(indices1, indices2)]))
+            indices1, indices2 = map(list, zip(*indices))
+            indices1 = np.array(indices1)
+            indices2 = np.array(indices2)
 
-        argidx = np.argsort(indices1 + indices2)
-        indices1 = indices1[argidx]
-        indices2 = indices2[argidx]
+            argidx = np.argsort(indices1 + indices2)
+            indices1 = indices1[argidx]
+            indices2 = indices2[argidx]
 
-        n = len(indices1)
-        if n <= 3:
-            print(f"=> few matches found")
-            return 0, np.array([])
-        dist1, angle1, r_angle1 = self.compute_binary_relation_fast(mnts1[indices1])
-        dist2, angle2, r_angle2 = self.compute_binary_relation_fast(mnts2[indices2])
-        dist_range = np.maximum(
-            1,
-            np.minimum(
-                len(self.thresholds["range"]) - 1,
-                np.ceil(np.minimum(dist1, dist2) / (self.thresholds["range"][1] - self.thresholds["range"][0])),
-            ),
-        ).astype(int)
-        ratio = np.minimum(dist1, dist2) / np.maximum(dist1, dist2).clip(1e-24, None)
-        dist_s = (ratio - self.thresholds["min_dist"][dist_range - 1]) / (1 - self.thresholds["min_dist"][dist_range - 1])
-        dist_s = dist_s.clip(0, None)
+            n = len(indices1)
+            if n <= 3:
+                print(f"=> few matches found")
+                return 0, np.array([])
+            dist1, angle1, r_angle1 = self.compute_binary_relation_fast(mnts1[indices1])
+            dist2, angle2, r_angle2 = self.compute_binary_relation_fast(mnts2[indices2])
+            dist_range = np.maximum(
+                1,
+                np.minimum(
+                    len(self.thresholds["range"]) - 1,
+                    np.ceil(np.minimum(dist1, dist2) / (self.thresholds["range"][1] - self.thresholds["range"][0])),
+                ),
+            ).astype(int)
+            ratio = np.minimum(dist1, dist2) / np.maximum(dist1, dist2).clip(1e-24, None)
+            dist_s = (ratio - self.thresholds["min_dist"][dist_range - 1]) / (
+                1 - self.thresholds["min_dist"][dist_range - 1]
+            )
+            dist_s = dist_s.clip(0, None)
 
-        angle_s = 1 - np.abs(normalize_minu_dir(angle1 - angle2)) / self.thresholds["max_angle"][dist_range - 1]
-        angle_s = angle_s.clip(0, None)
+            angle_s = 1 - np.abs(normalize_minu_dir(angle1 - angle2)) / self.thresholds["max_angle"][dist_range - 1]
+            angle_s = angle_s.clip(0, None)
 
-        r_angle_s = 1 - np.abs(normalize_minu_dir(r_angle1 - r_angle2)) / self.thresholds["max_rangle"][dist_range - 1]
-        r_angle_s = r_angle_s.clip(0, None)
+            r_angle_s = 1 - np.abs(normalize_minu_dir(r_angle1 - r_angle2)) / self.thresholds["max_rangle"][dist_range - 1]
+            r_angle_s = r_angle_s.clip(0, None)
 
-        M = dist_s * angle_s * r_angle_s
-        zero_mask = (indices1[:, None] == indices1[None]) | (indices2[:, None] == indices2[None])
-        M[zero_mask] = 0
-        # for ii in range(n):
-        #     M[ii, (indices1 == indices1[ii]) | (indices2 == indices2[ii])] = 0
+            M = dist_s * angle_s * r_angle_s
+            zero_mask = (indices1[:, None] == indices1[None]) | (indices2[:, None] == indices2[None])
+            M[zero_mask] = 0
+            # for ii in range(n):
+            #     M[ii, (indices1 == indices1[ii]) | (indices2 == indices2[ii])] = 0
 
-        # principal eigenvector
-        w, v = slg.eigh(M, subset_by_index=(n - 1, n - 1))
-        v = np.abs(v.reshape(-1))
-        v_idx = np.argsort(v)[::-1]
-        flag_match1 = np.zeros(len(mnts1))
-        flag_match2 = np.zeros(len(mnts2))
-        pair_ids = []
-        for ii in range(n):
-            if v[v_idx[ii]] <= 0.00001:
-                break
-            if flag_match1[indices1[v_idx[ii]]] or flag_match2[indices2[v_idx[ii]]]:
-                continue
-            if len(pair_ids) and len(np.where(M[pair_ids, v_idx[ii]] == 0)[0]):
-                continue
-            pair_ids.append(v_idx[ii])
-            flag_match1[indices1[v_idx[ii]]] = 1
-            flag_match2[indices2[v_idx[ii]]] = 1
-        pairs = np.stack((indices1[pair_ids], indices2[pair_ids]), axis=-1)
-        score = M[np.ix_(pair_ids, pair_ids)].sum()
+            # principal eigenvector
+            w, v = slg.eigh(M, subset_by_index=(n - 1, n - 1))
+            v = np.abs(v.reshape(-1))
+            v_idx = np.argsort(v)[::-1]
+            flag_match1 = np.zeros(len(mnts1))
+            flag_match2 = np.zeros(len(mnts2))
+            pair_ids = []
+            for ii in range(n):
+                if v[v_idx[ii]] <= 0.00001:
+                    break
+                if flag_match1[indices1[v_idx[ii]]] or flag_match2[indices2[v_idx[ii]]]:
+                    continue
+                if len(pair_ids) and len(np.where(M[pair_ids, v_idx[ii]] == 0)[0]):
+                    continue
+                pair_ids.append(v_idx[ii])
+                flag_match1[indices1[v_idx[ii]]] = 1
+                flag_match2[indices2[v_idx[ii]]] = 1
+            pairs = np.stack((indices1[pair_ids], indices2[pair_ids]), axis=-1)
+            score = M[np.ix_(pair_ids, pair_ids)].sum()
+        except:
+            score = 0
+            pairs = np.array([])
         return score, pairs
 
     def create_descriptor(self, mnts, img_shape, mask=None, is_save=False, fpath=None):
