@@ -10,6 +10,7 @@ import sys
 import os.path as osp
 import numpy as np
 from glob import glob
+from scipy import ndimage as sndi
 import matplotlib.pylab as plt
 from matplotlib.patches import ConnectionPatch
 
@@ -24,10 +25,16 @@ def draw_pose(ax, pose, length=100, color="blue"):
     ax.arrow(start[0], start[1], end[0] - start[0], end[1] - start[1], width=2, fc=color, ec=color)
 
 
-def draw_img_with_pose(img, pose, save_path, cmap="gray", vmin=None, vmax=None, mask=None, length=100, color="blue"):
+def draw_img_with_pose(
+    img, pose, save_path, scale=1, cmap="gray", vmin=None, vmax=None, mask=None, length=100, color="blue"
+):
     # plot
     fig = plt.figure()
     ax = fig.add_subplot(111)
+
+    if scale != 1:
+        img = sndi.zoom(img, scale, order=1, cval=img[0].max())
+        pose[:2] = pose[:2] * scale
 
     ax.imshow(img, cmap=cmap, vmin=vmin, vmax=vmax)
     draw_pose(ax, pose, length=length, color=color)
@@ -82,7 +89,7 @@ def draw_img_with_orientation(
     plt.close(fig)
 
 
-def draw_minutiae(ax, mnt_lst, arrow_length=15, color="red", linewidth=1.5):
+def draw_minutiae(ax, mnt_lst, arrow_length=20, color="red", linewidth=1.2):
     for mnt in mnt_lst:
         try:
             x, y, ori = mnt[:3]
@@ -95,7 +102,7 @@ def draw_minutiae(ax, mnt_lst, arrow_length=15, color="red", linewidth=1.5):
 
 
 def draw_minutia_on_finger(
-    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=15, color="red", linewidth=1.5
+    img, mnt_lst, save_path, cmap="gray", vmin=None, vmax=None, arrow_length=20, color="red", linewidth=1.2
 ):
     # plot
     fig = plt.figure()
@@ -169,14 +176,86 @@ def draw_minutiae_pair_on_finger(
     linecolor="green",
     linewidth=1.5,
     text_label=None,
+    dpi=180,
 ):
     # plot
-    fig = plt.figure()
+    fig = plt.figure(dpi=dpi)
     ax = fig.add_subplot(111)
     draw_minutiae_pair(
         ax,
         img1,
         img2,
+        mnts1,
+        mnts2,
+        cmap,
+        vmin,
+        vmax,
+        markercolor=markercolor,
+        linecolor=linecolor,
+        linewidth=linewidth,
+    )
+    if text_label is not None:
+        plt.text(10, 10, text_label, size=10, color="g")
+    fig.tight_layout()
+
+    if not osp.isdir(osp.dirname(save_path)):
+        os.makedirs(osp.dirname(save_path))
+    fig.savefig(save_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def draw_minutiae_pair_only(
+    ax, mnts1, mnts2, cmap="gray", vmin=None, vmax=None, markercolor="red", linecolor="green", linewidth=1.5
+):
+    for ii in range(len(mnts1)):
+        ax.scatter(
+            mnts1[ii, 0],
+            mnts1[ii, 1],
+            marker="s",
+            s=5,
+            facecolors="none",
+            edgecolor=markercolor,
+            linewidths=linewidth,
+        )
+        ax.scatter(
+            mnts2[ii, 0] + 1000,
+            mnts2[ii, 1],
+            marker="s",
+            s=5,
+            facecolors="none",
+            edgecolor=markercolor,
+            linewidths=linewidth,
+        )
+        ax.plot(
+            [mnts1[ii, 0], mnts2[ii, 0] + 1000],
+            [mnts1[ii, 1], mnts2[ii, 1]],
+            "-",
+            color=linecolor,
+            markersize=3,
+            markerfacecolor="none",
+        )
+    # ax.set_xlim(0, img.shape[1])
+    # ax.set_ylim(img.shape[0], 0)
+    ax.set_axis_on()
+
+
+def draw_minutiae_pair_only_on_finger(
+    mnts1,
+    mnts2,
+    save_path,
+    cmap="gray",
+    vmin=None,
+    vmax=None,
+    markercolor="red",
+    linecolor="green",
+    linewidth=1.5,
+    text_label=None,
+):
+    # plot
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    draw_minutiae_pair_only(
+        ax,
         mnts1,
         mnts2,
         cmap,

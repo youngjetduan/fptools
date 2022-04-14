@@ -22,7 +22,7 @@ from PIL import Image, ImageDraw
 
 sys.path.append(osp.dirname(osp.abspath(__file__)))
 from uni_io import mkdir
-from fp_verifinger import load_minutiae
+import fp_verifinger
 
 
 def load_mcc_feature(fpath):
@@ -93,6 +93,7 @@ class MCC:
         self.X, self.Y = self.delta_s * grid
         self.disk_kernel = np.sqrt(self.X ** 2 + self.Y ** 2) <= R
         self.cell_num = self.disk_kernel.sum()
+        self.mask = np.sqrt(self.X ** 2 + self.Y ** 2) <= (self.Ns / 2)
 
         self.d_phi = np.arange(0.5, Nd) * self.delta_d - np.pi  # [-pi, pi]
 
@@ -174,8 +175,8 @@ class MCC:
         fpath1=None,
         fpath2=None,
     ):
-        mnts1 = load_minutiae(osp.join(dir1, name1 + ".mnt"))
-        mnts2 = load_minutiae(osp.join(dir2, name2 + ".mnt"))
+        mnts1 = fp_verifinger.load_minutiae(osp.join(dir1, name1 + ".mnt"))
+        mnts2 = fp_verifinger.load_minutiae(osp.join(dir2, name2 + ".mnt"))
         des1 = self.create_descriptor(mnts1, img_shape1, mask=mask1, is_save=is_save1, fpath=fpath1)
         des2 = self.create_descriptor(mnts2, img_shape2, mask=mask2, is_save=is_save2, fpath=fpath2)
         score, pairs = self.fingerprint_matching(mnts1, mnts2, des1, des2)
@@ -353,6 +354,28 @@ def normalize_minu_dir(angle_rad, edge=180):
     return (angle_rad + edge) % (2 * edge) - edge
 
 
+def fingerprint_matching_single(search_path, gallery_path, search_mcc_path=None, gallery_mcc_path=None):
+    """
+    Parameters:
+        [None]
+    Returns:
+        score [, pairs]
+    """
+    search_mnt, search_header = fp_verifinger.load_minutiae(search_path + ".mnt", True)
+    gallery_mnt, gallery_header = fp_verifinger.load_minutiae(gallery_path + ".mnt", True)
+
+    if search_mcc_path is not None:
+        search_mcc = load_mcc_feature(search_mcc_path)
+    else:
+        search_mcc = MCC().create_descriptor(search_mnt, search_header)
+    if gallery_mcc_path is not None:
+        gallery_mcc = load_mcc_feature(gallery_mcc_path)
+    else:
+        gallery_mcc = MCC().create_descriptor(gallery_mnt, gallery_header)
+
+    return MCC().fingerprint_matching(search_mnt, gallery_mnt, search_mcc, gallery_mcc)
+
+
 if __name__ == "__main__":
     tool_mcc = MCC()
 
@@ -361,7 +384,7 @@ if __name__ == "__main__":
 
     mnt_type = "neu"
 
-    mnts1, img_shape1 = load_minutiae(
+    mnts1, img_shape1 = fp_verifinger.load_minutiae(
         f"/home/dyj/disk1/data/finger/Hisign/latent/feature/mnt/manual/{img_name1}.mnt", return_hearder=True
     )
     des1 = tool_mcc.create_descriptor(
@@ -371,7 +394,7 @@ if __name__ == "__main__":
         fpath=f"/home/dyj/disk1/data/finger/Hisign/latent/feature/mnt/mcc/{img_name1}.mat",
     )
 
-    mnts2, img_shape2 = load_minutiae(
+    mnts2, img_shape2 = fp_verifinger.load_minutiae(
         f"/home/dyj/disk1/data/finger/Hisign/file/feature/mnt/{mnt_type}/{img_name2}.mnt", return_hearder=True
     )
     des2 = tool_mcc.create_descriptor(

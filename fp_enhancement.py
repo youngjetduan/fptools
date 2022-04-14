@@ -21,9 +21,7 @@ from .uni_image import intensity_normalization
 
 def steerable_enhance(img, ori, seg, sigma=2):
     if np.any(np.array(ori.shape) != np.array(img.shape)):
-        ori = fp_orientation.zoom_orientation(
-            ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1])
-        )
+        ori = fp_orientation.zoom_orientation(ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]))
     if np.any(np.array(seg.shape) != np.array(img.shape)):
         seg = ndi.zoom(seg, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]), order=0)
     Ixx = ndi.gaussian_filter(img.astype(np.float32), sigma, order=(0, 2))
@@ -36,7 +34,9 @@ def steerable_enhance(img, ori, seg, sigma=2):
 
 
 def vectorize_orientation(ori, ang_stride=2, ang_range=180, sigma=5):
-    new_shape = (1, -1,) + (1,) * (ori.ndim - 2)
+    new_shape = (1, -1,) + (
+        1,
+    ) * (ori.ndim - 2)
     coord = torch.arange(ang_stride // 2, ang_range, ang_stride).view(*new_shape).type_as(ori) - ang_range // 2
     delta = (ori - coord).abs()
     delta = torch.min(delta, ang_range - delta)  # [0,180)
@@ -82,9 +82,7 @@ def gabor_enhance(
     gb_cos, _ = gabor_bank(kernel_size, ang_stride, ang_range, gb_sigma, gb_lambda, gb_psi, gb_gamma)
 
     if np.any(np.array(ori.shape) != np.array(img.shape)):
-        ori = fp_orientation.zoom_orientation(
-            ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1])
-        )
+        ori = fp_orientation.zoom_orientation(ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]))
     if np.any(np.array(seg.shape) != np.array(img.shape)):
         seg = ndi.zoom(seg, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]), order=0)
 
@@ -113,6 +111,44 @@ def gabor_enhance(
     img_real = intensity_normalization(img_real)
 
     return img_real
+
+
+def compute_gradient_norm(img, eps=1e-8):
+    Gx, Gy = np.gradient(img.astype(np.float32))
+    out = np.sqrt(Gx ** 2 + Gy ** 2) + eps
+    return out
+
+
+def lowpass_filtering(img, L):
+    img_fft = np.fft.fftshift(np.fft.fft2(img), axes=(-2, -1)) * L
+    img_rec = np.fft.ifft2(np.fft.fftshift(img_fft, axes=(-2, -1)))
+    img_rec = np.real(img_rec)
+    return img_rec
+
+
+def fast_cartoontexture(img, sigma=2.5, cmin=0.3, cmax=0.7, lim=20, eps=1e-8):
+    H, W = img.shape[:2]
+    grid_y, grid_x = np.meshgrid(np.linspace(-0.5, 0.5, H), np.linspace(-0.5, 0.5, W), indexing="ij")
+    grid_radius = np.sqrt(grid_x ** 2 + grid_y ** 2) + eps
+
+    L = 1.0 / (1 + (2 * np.pi * grid_radius * sigma) ** 4)
+
+    grad_img1 = compute_gradient_norm(img, eps)
+    grad_img1 = lowpass_filtering(grad_img1, L)
+
+    img_low = lowpass_filtering(img, L)
+    grad_img2 = compute_gradient_norm(img_low, eps)
+    grad_img2 = lowpass_filtering(grad_img2, L)
+
+    diff = grad_img1 - grad_img2
+    flag = np.abs(grad_img1)
+    diff = np.where(flag > 1, diff / flag.clip(eps, None), np.zeros_like(diff))
+    weight = np.clip((diff - cmin) / (cmax - cmin), 0, 1)
+
+    cartoon = weight * img_low + (1 - weight) * img
+    texture = (img - cartoon + lim) * 255 / (2 * lim)
+    texture = np.clip(texture, 0, 255)
+    return cartoon, texture
 
 
 if __name__ == "__main__":

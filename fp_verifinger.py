@@ -38,14 +38,14 @@ def save_pair_file(fname, score, pairs):
         fp.write(f"{score:.3f}\n")
         fp.write(f"{len(pairs)}\n")
         for c_pair in pairs:
-            fp.write(f"{c_pair[0]} {c_pair[1]}\n")
+            fp.write(f"{int(c_pair[0])} {int(c_pair[1])}\n")
 
 
 def load_pair_file(fname):
     warnings.filterwarnings("error")
     try:
         score = np.loadtxt(fname, skiprows=1, max_rows=1)
-        pairs = np.loadtxt(fname, skiprows=3)
+        pairs = np.loadtxt(fname, skiprows=3, dtype=int)
         return score.item(), pairs
     except UserWarning:
         return 0, np.array([])
@@ -161,13 +161,13 @@ def save_minutiae(fname, img_size, core_arr=None, delta_arr=None, kps_arr=None):
         fp.write(f"{img_size[0]}\n{img_size[1]}\n")
         fp.write(f"{len(core_arr)}\n{len(delta_arr)}\n{len(kps_arr)}\n")
         for c_core in core_arr:
-            fp.write(" ".join([f"{x:.2f}" for x in c_core]))
+            fp.write(" ".join([f"{int(x)}" for x in c_core]))
             fp.write("\n")
         for c_delta in delta_arr:
-            fp.write(" ".join([f"{x:.2f}" for x in c_delta]))
+            fp.write(" ".join([f"{int(x)}" for x in c_delta]))
             fp.write("\n")
         for c_mnt in kps_arr:
-            fp.write(" ".join([f"{x:.2f}" for x in c_mnt]))
+            fp.write(" ".join([f"{int(x)}" for x in c_mnt]))
             fp.write("\n")
 
 
