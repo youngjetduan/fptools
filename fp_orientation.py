@@ -11,9 +11,9 @@ import scipy.ndimage as ndi
 def calc_orientation_graident(img, win_size=16, stride=8):
     # img = exposure.equalize_adapthist(img) * 255
     Gx, Gy = np.gradient(img.astype(np.float32))
-    Gxx = ndi.gaussian_filter(Gx ** 2, win_size / 3)
-    Gyy = ndi.gaussian_filter(Gy ** 2, win_size / 3)
-    Gxy = ndi.gaussian_filter(-Gx * Gy, win_size / 3)
+    Gxx = ndi.gaussian_filter(Gx ** 2, win_size / 4)
+    Gyy = ndi.gaussian_filter(Gy ** 2, win_size / 4)
+    Gxy = ndi.gaussian_filter(-Gx * Gy, win_size / 4)
     coh = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2)  # / (Gxx + Gyy).clip(1e-6, None)
     if stride != 1:
         Gxx = ndi.uniform_filter(Gxx, stride)[::stride, ::stride]
@@ -41,8 +41,8 @@ def zoom_orientation(ori, scale):
 
 
 def transform_to_reference(arr, pose, tar_shape=None, order=0, cval=0, factor=8, is_ori=False):
-    """ transform array to standard pose
-    
+    """transform array to standard pose
+
     Parameters:
         [None]
     Returns:
@@ -70,8 +70,8 @@ def transform_to_reference(arr, pose, tar_shape=None, order=0, cval=0, factor=8,
 
 
 def transform_to_target(arr, pose, tar_shape=None, factor=8.0, angle=False, order=1):
-    """ transform array to target pose
-    
+    """transform array to target pose
+
     Parameters:
         [None]
     Returns:
@@ -96,4 +96,3 @@ def transform_to_target(arr, pose, tar_shape=None, factor=8.0, angle=False, orde
     else:
         new_arr = ndi.map_coordinates(arr, indices, order=order, mode="nearest")
     return new_arr
-

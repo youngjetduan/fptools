@@ -8,8 +8,6 @@
 *.jpg*
 *.png*
 
-neu_dir.txt
-
 __pycache__
 .vscode
 .obj

@@ -17,13 +17,10 @@ from skimage import exposure
 from scipy import ndimage as sndi
 
 
-def affine_input_coordinate(y, scale=1.0, theta=0.0, trans_1=np.zeros(2), trans_2=np.zeros(2)):
-    """get input coordinates (x) which are transformed to out_coord (y): y = s * (R(x + trans1) + trans2), x \in (M,2)"""
-    theta = np.deg2rad(theta)
-    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-    arr_shape = y.shape
-    x = (y.reshape(-1, 2) / scale - trans_2[None]).dot(R) - trans_1[None]
-    return x.reshape(*arr_shape)
+def affine_matrix(scale=1.0, theta=0.0, trans=np.zeros(2), trans_2=np.zeros(2)):
+    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]]) * scale
+    t = np.dot(R, trans) + trans_2
+    return np.array([[R[0, 0], R[0, 1], t[0]], [R[1, 0], R[1, 1], t[1]], [0, 0, 1]])
 
 
 def generate_grid(shape):
