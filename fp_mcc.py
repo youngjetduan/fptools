@@ -46,56 +46,101 @@ def poly2mask(polygon, img_shape):
     return np.array(mask)
 
 
-class MCC:
+class MCCParameters:
     def __init__(
         self,
-        omega=70,
-        sigma_s=7,
-        sigma_d=0.37,
-        R=70,
-        Ns=15,
-        Nd=6,
-        tau_psi=406,
-        mu_psi=0.0045,
+        omega=None,
+        sigma_s=None,
+        sigma_d=None,
+        R=None,
+        Ns=None,
+        Nd=None,
+        tau_psi=None,
+        mu_psi=None,
+        is_binary=False,
         thresholds={
             "range": np.arange(0, 211, 30),
             "min_dist": np.arange(0.52, 0.71, 0.03),
             "max_angle": np.arange(34, 47, 2),
             "max_rangle": np.arange(35, 66, 5),
         },
-    ):
-        self.sigma_s = sigma_s
-        self.sigma_d = sigma_d
-        self.R = R
-        self.Ns = Ns
-        self.Nd = Nd
-        self.tau_psi = tau_psi
-        self.mu_psi = mu_psi
+    ) -> None:
+        self.is_binary = is_binary
         self.thresholds = thresholds
 
-        self.min_VC = 0.3  # 0.75
-        self.min_M = 1
-        self.min_ME = 0.3  # 0.6
-        self.delta_theta = 3 * np.pi / 4
+        if self.is_binary:
+            self.omega = omega if omega is not None else 50
+            self.sigma_s = sigma_s if sigma_s is not None else 28 / 3
+            self.sigma_d = sigma_d if sigma_d is not None else 2 * np.pi / 9
+            self.R = R if R is not None else 70
+            self.Ns = Ns if Ns is not None else 8
+            self.Nd = Nd if Nd is not None else 6
+            self.tau_psi = tau_psi if tau_psi is not None else 400
+            self.mu_psi = mu_psi if mu_psi is not None else 0.005
 
-        self.min_pair = 4
-        self.max_pair = 10
-        self.mu_p = 32
-        self.tau_p = 0.25
+            self.min_VC = 0.5  # 0.75
+            self.min_M = 1
 
-        self.radius_s = 3 * sigma_s
-        self.delta_s = 2 * R / Ns
-        self.delta_d = 2 * np.pi / Nd
+            self.n_func = 32
+            self.n_select = 24
+            self.n_bits = 312
+            self.p = 30
+            self.n_minpc = 2
+            self.key_dtype = np.uint32
+        else:
+            self.omega = omega if omega is not None else 70
+            self.sigma_s = sigma_s if sigma_s is not None else 7
+            self.sigma_d = sigma_d if sigma_d is not None else 0.37
+            self.R = R if R is not None else 70
+            self.Ns = Ns if Ns is not None else 15
+            self.Nd = Nd if Nd is not None else 6
+            self.tau_psi = tau_psi if tau_psi is not None else 406
+            self.mu_psi = mu_psi if mu_psi is not None else 0.0045
 
-        self.disk_omega = morphology.disk(omega + 2 * (4 - 1))[7:-7, 7:-7]
+            self.min_VC = 0.3  # 0.75
+            self.min_M = 1
+            self.min_ME = 0.3  # 0.6
+            self.delta_theta = 3 * np.pi / 4
+            self.min_pair = 4
+            self.max_pair = 10
+            self.mu_p = 32
+            self.tau_p = 0.25
 
-        grid = np.stack(np.meshgrid(np.arange(Ns), np.arange(Ns)), axis=0) + 1 - (Ns + 1) / 2
-        self.X, self.Y = self.delta_s * grid
-        self.disk_kernel = np.sqrt(self.X ** 2 + self.Y ** 2) <= R
-        self.cell_num = self.disk_kernel.sum()
-        self.mask = np.sqrt(self.X ** 2 + self.Y ** 2) <= (self.Ns / 2)
+        self.radius_s = 3 * self.sigma_s
+        self.delta_s = 2 * self.R / self.Ns
+        self.delta_d = 2 * np.pi / self.Nd
 
-        self.d_phi = np.arange(0.5, Nd) * self.delta_d - np.pi  # [-pi, pi]
+        # self.disk_omega = morphology.disk(omega + 2 * (4 - 1))[7:-7, 7:-7]
+        self.disk_omega = morphology.disk(self.omega)[1:-1, 1:-1]
+
+        grid = np.stack(np.meshgrid(np.arange(self.Ns), np.arange(self.Ns)), axis=0) + 1 - (self.Ns + 1) / 2
+        self.X0, self.Y0 = self.delta_s * grid
+        self.mask = np.sqrt(self.X0 ** 2 + self.Y0 ** 2) <= self.R
+        self.cell_num = self.mask.sum()
+
+        self.d_phi = np.arange(0.5, self.Nd) * self.delta_d - np.pi  # [-pi, pi]
+
+
+class MCC(MCCParameters):
+    def __init__(
+        self,
+        omega=None,
+        sigma_s=None,
+        sigma_d=None,
+        R=None,
+        Ns=None,
+        Nd=None,
+        tau_psi=None,
+        mu_psi=None,
+        is_binary=False,
+        thresholds={
+            "range": np.arange(0, 211, 30),
+            "min_dist": np.arange(0.52, 0.71, 0.03),
+            "max_angle": np.arange(34, 47, 2),
+            "max_rangle": np.arange(35, 66, 5),
+        },
+    ) -> None:
+        super().__init__(omega, sigma_s, sigma_d, R, Ns, Nd, tau_psi, mu_psi, is_binary, thresholds)
 
     def similarity(self, cur_des1, cur_des2):
         if len(cur_des1[0]["cm"]) == 0 or len(cur_des2[0]["cm"]) == 0:
@@ -294,13 +339,14 @@ class MCC:
 
         # distance map for each pair of minutiae
         mnt_dist_map = distance.squareform(distance.pdist(mnts[:, :2]))
+        mnt_dist_map[np.diag_indices_from(mnt_dist_map)] = 10000
 
         N = len(mnts)
         descriptor = {
             "mnt": mnts,
-            "flag": np.zeros(N),
+            "flag": np.zeros(N, dtype=bool),
             "cm": np.zeros((N, self.Ns ** 2, self.Nd)),
-            "mask": np.zeros((N, self.Ns ** 2)),
+            "mask": np.zeros((N, self.Ns ** 2), dtype=bool),
             "neighbor": np.zeros(N),
         }
 
@@ -309,16 +355,15 @@ class MCC:
             # rotate disk around current minutia
             sin_ori = np.sin(cur_mnt[2] * np.pi / 180)
             cos_ori = np.cos(cur_mnt[2] * np.pi / 180)
-            X = cur_mnt[0] + cos_ori * self.X - sin_ori * self.Y
-            Y = cur_mnt[1] + sin_ori * self.X + cos_ori * self.Y
-            # disk_mask = self.disk_kernel * (X > 0) * (X < img_shape[0]) * (Y > 0) * (Y < img_shape[1])
-            disk_mask = self.disk_kernel * map_coordinates(ROI * 1, np.stack((Y, X)), order=0) > 0
+            X = cur_mnt[0] + cos_ori * self.X0 - sin_ori * self.Y0
+            Y = cur_mnt[1] + sin_ori * self.X0 + cos_ori * self.Y0
+            # disk_mask = self.mask * (X > 0) * (X < img_shape[0]) * (Y > 0) * (Y < img_shape[1])
+            disk_mask = self.mask * map_coordinates(ROI * 1, np.stack((Y, X)), order=0) > 0
             if disk_mask.sum() < (self.min_VC * self.cell_num):
                 continue
 
             # distance map between current point and minutia within_mask local disk
             cur_dist = mnt_dist_map[cur_ii]
-            cur_dist[cur_ii] = 10000
             within_mask = cur_dist <= (self.R + self.radius_s)
             if within_mask.sum() < self.min_M:
                 continue
@@ -337,12 +382,22 @@ class MCC:
             # Cd = np.exp(-(local_Dd ** 2) / (2 * self.sigma_d ** 2)) / (np.sqrt(2 * np.pi) * self.sigma_d)
             # normalizing the contribution
             Cm = (Cs[:, :, None] * Cd[None, :, :]).sum(axis=1)
-            Cm = 1.0 / (1 + np.exp(-self.tau_psi * (Cm - self.mu_psi)))
+            if self.is_binary:
+                Cm = Cm > self.mu_psi
+            else:
+                Cm = 1.0 / (1 + np.exp(-self.tau_psi * (Cm - self.mu_psi)))
 
             descriptor["flag"][cur_ii] = 1
             descriptor["cm"][cur_ii] = Cm
             descriptor["mask"][cur_ii] = disk_mask.reshape(-1)
             descriptor["neighbor"][cur_ii] = within_mask.sum()
+
+        if self.is_binary:
+            descriptor["cm"] = (
+                np.transpose(descriptor["cm"].reshape(N, self.Ns, self.Ns, -1), (0, 3, 1, 2))[:, :, self.mask > 0]
+                .reshape(N, -1)
+                .astype(bool)
+            )
 
         if is_save and fpath is not None:
             mkdir(osp.dirname(fpath))

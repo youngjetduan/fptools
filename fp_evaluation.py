@@ -126,11 +126,16 @@ def draw_roc(ax, rate_arr, profile="k-", linewidth=1.5, label=""):
     ax.set_title("ROC curve using Verifinger")
 
 
+def draw_cmc(ax, rank_arr, profile="k-s", linewidth=1.5, label=""):
+    x = np.arange(len(rank_arr))
+    ax.plot(x, rank_arr, profile, linewidth=linewidth, label=label)
+
+
 def draw_det(ax, rate_arr, profile="k-", linewidth=2, label=""):
     ax.plot(rate_arr[0], 1 - rate_arr[1], profile, linewidth=linewidth, label=label)
 
 
-def draw_det_lines(ax, title="DET curve using Verifinger", xlim=[0, 1], ylim=[0, 1]):
+def normalize_det_lines(ax, title="DET curve using Verifinger", xlim=[0, 1], ylim=[0, 1]):
     ax.set_xscale("log")
     ax.set_xlabel("FMR")
     ax.set_ylabel("FNMR")
@@ -143,7 +148,7 @@ def draw_det_lines(ax, title="DET curve using Verifinger", xlim=[0, 1], ylim=[0,
     ax.set_ylim([ylim[0], ylim[1]])
 
 
-def draw_det_log_lines(ax, title="DET curve using Verifinger", xlim=[1e-4, 1], ylim=[1e-3, 1]):
+def normalize_det_log_lines(ax, title="DET curve using Verifinger", xlim=[1e-4, 1], ylim=[1e-3, 1]):
 
     # EER line
     points = np.array([-4, 1])
@@ -175,11 +180,6 @@ def draw_det_log_lines(ax, title="DET curve using Verifinger", xlim=[1e-4, 1], y
 
     ax.set_xlim([xlim[0], xlim[1]])
     ax.set_ylim([ylim[0], ylim[1]])
-
-
-def draw_cmc(ax, rank_arr, profile="k-s", linewidth=1.5, label=""):
-    x = np.arange(len(rank_arr))
-    ax.plot(x, rank_arr, profile, linewidth=linewidth, label=label)
 
 
 if __name__ == "__main__":

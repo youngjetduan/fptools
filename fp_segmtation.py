@@ -73,22 +73,26 @@ def convex_hull_image(data):
 
 def segmentation_postprocessing(seg, kernel_size=5, stride=8, convex=False):
     selem = np.ones((kernel_size, kernel_size))
-    seg = morphology.binary_closing(seg.astype(np.bool), selem=selem)
-    seg = morphology.remove_small_holes(seg, area_threshold=2000 // stride)
-    seg = morphology.remove_small_objects(seg, min_size=1000 // stride)
+    # seg = morphology.binary_opening(seg.astype(np.bool), footprint=selem)
+    # seg = morphology.binary_closing(seg.astype(np.bool), footprint=selem)
+    seg = morphology.binary_erosion(seg.astype(bool), footprint=selem)
+    seg = morphology.remove_small_holes(seg, area_threshold=15000 // (stride ** 2))
+    seg = morphology.remove_small_objects(seg, min_size=15000 // (stride ** 2))
+    seg = morphology.binary_dilation(seg.astype(bool), footprint=selem)
+    seg = find_largest_connected_region(seg)
     if convex and seg.sum() > 0:
-        seg = find_largest_connected_region(seg)
         seg = convex_hull_image(seg)
     return seg
 
 
-def segmentation_coherence(img, win_size=16, stride=8, threshold=50, convex=False):
+def segmentation_coherence(img, win_size=16, stride=8, threshold=50, convex=False, resize=False):
     # average pooling
-    _, coh = calc_orientation_graident(img, win_size, 8)
-    coh = ndi.zoom(coh, (img.shape[0] * 1.0 / coh.shape[0], img.shape[1] * 1.0 / coh.shape[1]), order=1)
+    _, coh = calc_orientation_graident(img, win_size, stride)
+    if stride != 1:
+        coh = ndi.zoom(coh, (img.shape[0] * 1.0 / coh.shape[0], img.shape[1] * 1.0 / coh.shape[1]), order=1)
     seg = coh > threshold
 
-    seg = segmentation_postprocessing(seg, kernel_size=5, stride=stride, convex=convex)
+    seg = segmentation_postprocessing(seg, kernel_size=15, stride=1, convex=convex)
     return seg
 
 

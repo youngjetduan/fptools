@@ -13,12 +13,11 @@ from glob import glob
 from ctypes import cdll
 import subprocess
 import warnings
+import yaml
+import socket
 
-# server 27
-# neu_dir = "/mnt/data5/fptools/Verifinger"
-# server 33
-# neu_dir = "/mnt/data1/dyj"
-neu_dir = np.loadtxt(osp.join(osp.dirname(osp.abspath(__file__)), "neu_dir.txt"), str).tolist()
+neu_lst = yaml.safe_load(open(osp.join(osp.dirname(osp.abspath(__file__)), "neu_dir.yaml"), "r"))
+neu_dir = neu_lst[socket.gethostname()]
 
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_python37.so"))
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_numpy37.so"))
@@ -86,13 +85,23 @@ def pts_normalization(arr):
 def load_minutiae_complete(fname, return_header=False):
     num_core = np.loadtxt(fname, skiprows=2, max_rows=1).astype(int)
     num_delta = np.loadtxt(fname, skiprows=3, max_rows=1).astype(int)
-    core_arr = np.loadtxt(fname, skiprows=5, max_rows=num_core)
-    delta_arr = np.loadtxt(fname, skiprows=5 + num_core, max_rows=num_delta)
-    mnt_arr = np.loadtxt(fname, skiprows=5 + num_core + num_delta)
+    num_minu = np.loadtxt(fname, skiprows=4, max_rows=1).astype(int)
 
-    core_arr = pts_normalization(core_arr)
-    delta_arr = pts_normalization(delta_arr)
-    mnt_arr = pts_normalization(mnt_arr)
+    if num_core:
+        core_arr = np.loadtxt(fname, skiprows=5, max_rows=num_core)
+        core_arr = pts_normalization(core_arr)
+    else:
+        core_arr = np.zeros((0, 4))
+    if num_delta:
+        delta_arr = np.loadtxt(fname, skiprows=5 + num_core, max_rows=num_delta)
+        delta_arr = pts_normalization(delta_arr)
+    else:
+        delta_arr = np.zeros((0, 6))
+    if num_minu:
+        mnt_arr = np.loadtxt(fname, skiprows=5 + num_core + num_delta)
+        mnt_arr = pts_normalization(mnt_arr)
+    else:
+        mnt_arr = np.zeros((0, 4))
 
     if return_header:
         header = np.loadtxt(fname, max_rows=2).astype(int)
@@ -337,4 +346,26 @@ def skeleton_extraction(img_path, skl_path, img_format="png"):
     """
     return _verifinger._skeleton_extraction(
         osp.dirname(img_path), osp.basename(img_path), osp.dirname(skl_path), osp.basename(skl_path), img_format
+    )
+
+
+def fingerprint_matching_single_minuonly(
+    query_size, query_mnts, gallery_size, gallery_mnts, query_resolution=500, gallery_resolution=500
+):
+    """use minutiae only for fingerprint matching
+
+    Parameters:
+        [None]
+    Returns:
+        score [, pairs]
+    """
+    query_size = np.array(query_size) if not isinstance(query_size, np.ndarray) else query_size
+    gallery_size = np.array(gallery_size) if not isinstance(gallery_size, np.ndarray) else gallery_size
+    return _verifinger._fingerprint_matching_single_only(
+        query_size.astype(np.int32),
+        query_mnts.astype(np.int32),
+        gallery_size.astype(np.int32),
+        gallery_mnts.astype(np.int32),
+        int(query_resolution),
+        int(gallery_resolution),
     )
