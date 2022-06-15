@@ -13,16 +13,15 @@ from glob import glob
 import tqdm
 import time
 import pickle
+import yaml
+import socket
 from ctypes import cdll
 from scipy import io as sio, spatial as ssp, sparse
 import functools
 from multiprocessing import Pool
 
-# server 27
-# neu_dir = "/mnt/data5/fptools/Verifinger"
-# server 33
-# neu_dir = "/mnt/data1/dyj"
-neu_dir = np.loadtxt(osp.join(osp.dirname(osp.abspath(__file__)), "neu_dir.txt"), str).tolist()
+neu_lst = yaml.safe_load(open(osp.join(osp.dirname(osp.abspath(__file__)), "neu_dir.yaml"), "r"))
+neu_dir = neu_lst[socket.gethostname()]
 
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_python37.so"))
 cdll.LoadLibrary(osp.join(neu_dir, "boost", "lib", "libboost_numpy37.so"))

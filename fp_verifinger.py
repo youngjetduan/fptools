@@ -197,6 +197,7 @@ class Verifinger(_verifinger._verifinger):
 
     def fingerprint_matching_batch(self, search_paths, gallery_paths, thread_num=8):
         """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
+        DO NOT USE THIS FUNCTION!
 
         Parameters:
             [None]
@@ -369,3 +370,32 @@ def fingerprint_matching_single_minuonly(
         int(query_resolution),
         int(gallery_resolution),
     )
+
+
+def minutia_extraction_test(img_path, feat_path, img_format="png", mnt_format="ISO"):
+    """set feat_name as "" if you prefer it has the same name as img_name
+    The Minutia File format:
+    img_width
+    img_height
+    num_of_core
+    num_of_delta
+    num_of_minutia
+    [ core_point_detail ] * num_of_core
+    [ delta_point_detail ] * num_of_delta
+    [ minutia_point_detail ] * num_of_minutia
+
+    Parameters:
+        [None]
+    Returns:
+        quality_score
+    """
+    score = _verifinger._minutia_extraction_test(
+        osp.dirname(img_path),
+        osp.basename(img_path),
+        osp.dirname(feat_path),
+        osp.basename(feat_path),
+        img_format,
+        mnt_format,
+    )
+    score = score if score <= 100 else -1
+    return score

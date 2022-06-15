@@ -38,9 +38,9 @@ def draw_distribution2(ax, score_mat, linewidth=1.5):
     genuine_scores = np.array(score_mat["genuine"]).astype(np.float32).flatten()
     impostor_scores = np.array(score_mat["impostor"]).astype(np.float32).flatten()
 
-    seaborn.kdeplot(genuine_scores, shade=False, label="Genuine", linewidth=linewidth, ax=ax)
+    seaborn.kdeplot(genuine_scores, shade=False, label="Genuine", color="g", linewidth=linewidth, ax=ax)
     ax2 = ax.twinx()
-    seaborn.kdeplot(impostor_scores, shade=False, label="Impostor", linewidth=linewidth, ax=ax2)
+    seaborn.kdeplot(impostor_scores, shade=False, label="Impostor", color="r", linewidth=linewidth, ax=ax2)
 
 
 def compute_roc(score_mat, num_steps=100, gms_only=False):
@@ -131,8 +131,8 @@ def draw_cmc(ax, rank_arr, profile="k-s", linewidth=1.5, label=""):
     ax.plot(x, rank_arr, profile, linewidth=linewidth, label=label)
 
 
-def draw_det(ax, rate_arr, profile="k-", linewidth=2, label=""):
-    ax.plot(rate_arr[0], 1 - rate_arr[1], profile, linewidth=linewidth, label=label)
+def draw_det(ax, rate_arr, profile="k-", linewidth=2, marker="", label=""):
+    ax.plot(rate_arr[0], 1 - rate_arr[1], profile, linewidth=linewidth, marker=marker, label=label)
 
 
 def normalize_det_lines(ax, title="DET curve using Verifinger", xlim=[0, 1], ylim=[0, 1]):
