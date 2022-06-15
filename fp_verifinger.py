@@ -186,18 +186,17 @@ class Verifinger(_verifinger._verifinger):
         self._initialize_license()
 
     def fingerprint_matching_single(self, search_dir, search_name, gallery_dir, gallery_name):
-        """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
+        """all inputs: paths of minutiae file
 
         Parameters:
             [None]
         Returns:
-            score [, pairs]
+            score, pairs
         """
         return self._fingerprint_matching_single(search_dir, search_name, gallery_dir, gallery_name)
 
     def fingerprint_matching_batch(self, search_paths, gallery_paths, thread_num=8):
-        """Note that, the number of minutiae in 'gallery_name' is higher than 'search_name'
-        DO NOT USE THIS FUNCTION!
+        """DO NOT USE THIS FUNCTION!
 
         Parameters:
             [None]
