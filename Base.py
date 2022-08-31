@@ -873,7 +873,7 @@ def ComputeSymmetry(DIR, x, y, theta):
         dir2 = NormalizeRidgeDir(dir2 - theta - 90)
         error = error + np.sum(np.abs(NormalizeRidgeDir(dir1 + dir2)))
         count = count + len(dir1)
-    sym = (90 - error / count) / 90
+    sym = (90 - error / (count+ROUND_EPS)) / 90
     return sym
 
 

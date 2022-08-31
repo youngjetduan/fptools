@@ -293,7 +293,7 @@ def ComputeDir(I, BLK_SIZE, smoothsize=None):
     Gsy = cv2.blur(Gsy, (smoothsize, smoothsize))
     coh = cv2.blur(coh, (smoothsize, smoothsize))
 
-    coh = np.divide(np.sqrt(np.power(Gsx, 2) + np.power(Gsy, 2)), (coh + np.spacing(1)))
+    coh = np.divide(np.sqrt(np.power(Gsx, 2) + np.power(Gsy, 2)), (coh + np.spacing(1) + 1e-8))
 
     if BLK_SIZE > 1:
         for by in range(1, vBlockNum + 1):

@@ -21,8 +21,10 @@ import sys
 from scipy import stats
 import time
 
-
 sys.path.append(osp.dirname(osp.abspath(__file__)))
+from uni_tps import opencv_tps, tps_apply_transform, tps_module_numpy
+from fp_mcc import MCC
+from BaseDirPed import FillHoleDir, ComputePeriod_Dir
 from Base import (
     FillHole,
     DetectSP,
@@ -31,12 +33,24 @@ from Base import (
     NormalizeMinuDir,
     RidgeFilterComplex,
 )
-from BaseDirPed import FillHoleDir, ComputePeriod_Dir
-from fp_mcc import MCC
-from uni_tps import opencv_tps, tps_apply_transform, tps_module_numpy
+from fptools.fp_verifinger import load_minutiae
+from fptools.fp_sift import regist_sift
+
 
 
 ROUND_EPS = 0.00001  # for the problem of np.round() in '0.5'
+
+
+def SIFTRegistration(feature_path, ftitle1, ftitle2, ext="png"):
+    img1 = cv2.imread(osp.join(feature_path, ftitle1 +
+                      "." + ext), cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(osp.join(feature_path, ftitle2 +
+                      "." + ext), cv2.IMREAD_GRAYSCALE)
+    h, w = img1.shape
+
+    img_deformed, pts1, pts2 = regist_sift(img1, img2)
+
+    return img_deformed
 
 
 def PhaseRegistration(
@@ -45,56 +59,102 @@ def PhaseRegistration(
     ftitle1,
     ftitle2,
     tool,
-    ext,
+    ext="png",
     init_prefix="init_",
     phase_prefix="phase_",
-    threshNum=4,
-    useMCC=True,
+    initFunc="VeriFinger",
+    threshNum=8,
+    RANSAC_th = None,
 ):
+    """_summary_
+
+    Args:
+        feature_path (_type_): _description_
+        tmp_path (_type_): _description_
+        ftitle1 (_type_): _description_
+        ftitle2 (_type_): _description_
+        tool (_type_): VeriFinger
+        ext (_type_): _description_. Defaults to "png".
+        init_prefix (str, optional): Prefix name of init data. Defaults to "init_".
+        phase_prefix (str, optional): Prefix name of phase data. Defaults to "phase_".
+        initFunc (str, optional): Matching method. Defaults to "VeriFinger".
+        threshNum (int, optional): Minimum number of matching points if 'initFunc' type is 'VeriFinger'. Defaults to 8.
+
+    Returns:
+        _type_: _description_
+    """
+
     # -------------------------------------------------------- #
     # ----------------------- tps init ----------------------- #
     # -------------------------------------------------------- #
-    img1 = cv2.imread(osp.join(feature_path, ftitle1 + "." + ext), cv2.IMREAD_GRAYSCALE)
-    img2 = cv2.imread(osp.join(feature_path, ftitle2 + "." + ext), cv2.IMREAD_GRAYSCALE)
+    img1 = cv2.imread(osp.join(feature_path, ftitle1 +
+                      "." + ext), cv2.IMREAD_GRAYSCALE)
+    img2 = cv2.imread(osp.join(feature_path, ftitle2 +
+                      "." + ext), cv2.IMREAD_GRAYSCALE)
     h, w = img1.shape
 
-    from fp_verifinger import load_minutiae
-
-    MINU1 = load_minutiae(osp.join(feature_path, "mf" + ftitle1 + ".mnt"))
-    MINU2 = load_minutiae(osp.join(feature_path, "mf" + ftitle2 + ".mnt"))
-
-    if useMCC:
-        mcc = MCC()
-        des1 = mcc.create_descriptor(MINU1, img1.shape)
-        des2 = mcc.create_descriptor(MINU2, img2.shape)
-        score, init_minu_pairs = mcc.fingerprint_matching(MINU1, MINU2, des1, des2)
-    else:
+    # t1 = time.time()
+    if initFunc is "VeriFinger":
+        MINU1 = load_minutiae(osp.join(feature_path, "mf" + ftitle1 + ".mnt"))
+        MINU2 = load_minutiae(osp.join(feature_path, "mf" + ftitle2 + ".mnt"))
         score, init_minu_pairs = tool.fingerprint_matching_single(
             feature_path, "mf" + ftitle1, feature_path, "mf" + ftitle2
         )
+        if RANSAC_th is not None:
+            H, mask = cv2.estimateAffinePartial2D(MINU1[init_minu_pairs[:, 0], 0:2], MINU2[init_minu_pairs[:, 1], 0:2], method=cv2.RANSAC, ransacReprojThreshold=20.0)
+            mask = mask.reshape((-1,))
+            init_minu_pairs = init_minu_pairs.take(np.where(mask==1)[0],0)
+        if init_minu_pairs.shape[0] < threshNum:
+            # print(
+            #     "[%s] - [%s] Error: Insufficient number of matching points !\n"
+            #     % (ftitle1, ftitle2)
+            # )
+            # return None, -1, -1
+            raise ValueError('Insufficient number of matching points !')
 
-    if init_minu_pairs.shape[0] < threshNum:
-        print(
-            "[%s] - [%s] Error: Insufficient number of matching points !\n"
-            % (ftitle1, ftitle2)
+        p_init = np.hstack(
+            (MINU1[init_minu_pairs[:, 0], 0:2],
+             MINU2[init_minu_pairs[:, 1], 0:2])
         )
-        return None, -1, -1
 
-    p_init = np.hstack(
-        (MINU1[init_minu_pairs[:, 0], 0:2], MINU2[init_minu_pairs[:, 1], 0:2])
-    )
+        if not osp.exists(tmp_path):
+            os.makedirs(tmp_path)
 
-    if not osp.exists(tmp_path):
-        os.makedirs(tmp_path)
+        
+    elif initFunc is "SIFT":
+        img_deformed, pts1, pts2 = regist_sift(img1, img2)
+        MINU1 = np.ones((pts1.shape[0], 4))
+        MINU2 = np.ones((pts2.shape[0], 4))
+        MINU1[:, 0:2] = pts1
+        MINU2[:, 0:2] = pts2
+        init_minu_pairs = np.array(
+            [np.arange(1, MINU1.shape[0]), np.arange(1, MINU1.shape[0])]).T
+        p_init = np.hstack(
+            (MINU1[init_minu_pairs[:, 0], 0:2],
+             MINU2[init_minu_pairs[:, 1], 0:2])
+        )
+
+    else:
+        # print(
+        #     "[%s] - [%s] Error: %s No such init function type !\n"
+        #     % (ftitle1, ftitle2,initFunc)
+        # )
+        # return None, -1, -1
+        raise ValueError('No such init function type !')
+    
+    # t2 = time.time()
+    # print("init registration: {}s".format(t2-t1))
 
     img_deformed = opencv_tps(
         img2,
         MINU2[init_minu_pairs[:, 1], 0:2],
         MINU1[init_minu_pairs[:, 0], 0:2],
         mode=1,
-        border_value=0,
+        border_value=255,
     )
     img_deformed_title = init_prefix + ftitle1 + "_" + ftitle2
+    if not osp.exists(tmp_path):
+        os.makedirs(tmp_path)
     cv2.imwrite(osp.join(tmp_path, img_deformed_title + "." + ext), img_deformed)
 
     # -------------------------------------------------------------------------------------------------- #
@@ -103,10 +163,9 @@ def PhaseRegistration(
     tool.binary_extraction(
         tmp_path, img_deformed_title, tmp_path, "b" + img_deformed_title, ext
     )
-    tool.skeleton_extraction(
-        tmp_path, img_deformed_title, tmp_path, "t" + img_deformed_title, ext
-    )
-    # t1 = time.time()
+    # tool.skeleton_extraction(
+    #     tmp_path, img_deformed_title, tmp_path, "t" + img_deformed_title, ext
+    # )
     ExtractPhaseFeature(
         tmp_path,
         tmp_path,
@@ -115,14 +174,16 @@ def PhaseRegistration(
         ext="png",
         save=False,
     )
-    # t2 = time.time()
-    # print("extract feature: ",t2-t1)
+    # t3 = time.time()
+    # print("feature extraction 2: {}s".format(t3-t2))
+
 
     # ----------------------------------------------------- #
     # ----------------------- phase ----------------------- #
     # ----------------------------------------------------- #
     # load ftitle1 info
-    phase_1_mat = scio.loadmat(osp.join(feature_path, phase_prefix + ftitle1 + ".mat"))
+    phase_1_mat = scio.loadmat(
+        osp.join(feature_path, phase_prefix + ftitle1 + ".mat"))
     PHASE1ORIGIN = phase_1_mat["m_phase"]
     UNWRAPPEDDIR1 = phase_1_mat["m_unwrappedDir"]
     PED1 = phase_1_mat["m_ped"]
@@ -196,16 +257,23 @@ def PhaseRegistration(
                 )
             )
             suc = True
+        
         else:
-            print(
-                "[%s] - [%s] Error: No valid point after distortion field smooth \n"
-                % (ftitle1, ftitle2)
-            )
-            suc = False
-            return None, -1, -1
+            # print(
+            #     "[%s] - [%s] Error: No valid point after distortion field smooth \n"
+            #     % (ftitle1, ftitle2)
+            # )
+            # suc = False
+            # return None, -1, -1
+            raise ValueError('No valid point after distortion field smooth !')
+        
     else:
-        suc = False
-        return None, -1, -1
+        # suc = False
+        # return None, -1, -1
+        raise ValueError('Dense Registration error !')
+    
+    # t4 = time.time()
+    # print("phase registration: {}s".format(t4-t3))
 
     # ---------------------------------------------------------- #
     # ----------------------- distortion ----------------------- #
@@ -215,30 +283,194 @@ def PhaseRegistration(
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
     x = x.reshape((-1, 1))
     y = y.reshape((-1, 1))
-    init_tps_matrix = tps_module_numpy(p_init[:, 2:], p_init[:, 0:2])
     origin_xy = np.hstack((x, y))
-    init_xy = tps_apply_transform(origin_xy, p_init[:, 2:], init_tps_matrix)
 
+    # init_tps_matrix = tps_module_numpy(p_init[:, 2:], p_init[:, 0:2])
+    # init_xy = tps_apply_transform(origin_xy, p_init[:, 2:], init_tps_matrix)
+    # phase_tps_matrix = tps_module_numpy(p_phase[:, 2:], p_phase[:, 0:2])
+    # phase_xy = tps_apply_transform(init_xy, p_phase[:, 2:], phase_tps_matrix)
     phase_tps_matrix = tps_module_numpy(p_phase[:, 2:], p_phase[:, 0:2])
-    phase_xy = tps_apply_transform(init_xy, p_phase[:, 2:], phase_tps_matrix)
+    phase_xy = tps_apply_transform(origin_xy, p_phase[:, 2:], phase_tps_matrix)
 
     dx = (phase_xy[:, 0] - origin_xy[:, 0]).reshape((-1, 1))
     dy = (phase_xy[:, 1] - origin_xy[:, 1]).reshape((-1, 1))
 
+    # img2_tmp = griddata(
+    #     np.hstack((x + dx, y + dy)),
+    #     img2.reshape((-1, 1)),
+    #     np.hstack((x, y)),
+    #     method="nearest",
+    # ).reshape((h, w))
     img2_tmp = griddata(
         np.hstack((x + dx, y + dy)),
-        img2.reshape((-1, 1)),
+        img_deformed.reshape((-1, 1)),
         np.hstack((x, y)),
         method="nearest",
+        fill_value=255
     ).reshape((h, w))
     # t2 = time.time()
     # print("distortion: ",t2-t1)
 
+    # t5 = time.time()
+    # print("grid warp: {}s".format(t5-t4))
+
     return img2_tmp, dx, dy
+
+def PhaseRegistrationWithoutInit(
+            bimg_dir,
+            minu_dir,
+            phase_dir,
+            ftitle1,
+            ftitle2,
+            minu_title,
+            phase_prefix,
+            ):
+
+    ExtractPhaseFeature(
+        bimg_dir,
+        phase_dir,
+        ftitle1,
+        prefix=phase_prefix,
+        ext="png",
+        save=False,
+        bimg_prefix='',
+    )
+    ExtractPhaseFeature(
+        bimg_dir,
+        phase_dir,
+        ftitle2,
+        prefix=phase_prefix,
+        ext="png",
+        save=False,
+        bimg_prefix='',
+    )
+
+    phase_1_mat = scio.loadmat(
+        osp.join(phase_dir, phase_prefix + ftitle1 + ".mat"))
+    PHASE1ORIGIN = phase_1_mat["m_phase"]
+    UNWRAPPEDDIR1 = phase_1_mat["m_unwrappedDir"]
+    PED1 = phase_1_mat["m_ped"]
+    PED1[PED1 == 0] = np.inf
+    MASK1 = phase_1_mat["m_mask0"]
+    MASK1[MASK1 != 1] = 0
+
+    phase_2_mat = scio.loadmat(
+        osp.join(phase_dir, phase_prefix + ftitle2 + ".mat"))
+    PHASE2ORIGIN = phase_2_mat["m_phase"]
+    UNWRAPPEDDIR2 = phase_2_mat["m_unwrappedDir"]
+    MASK2 = phase_2_mat["m_mask0"]
+    MASK2[MASK2 != 1] = 0
+
+    minu_data = scio.loadmat(osp.join(minu_dir,minu_title+'.mat'))
+    minu1 = minu_data['minu1']
+    minu2 = minu_data['minu2']
+    anchorPts = minu2
+    MASK = np.zeros_like(MASK1)
+    MASK[(MASK1 == 1) & (MASK2 == 1)] = 1
+
+    # deal with phase reversion due to reverse in direction
+    diffDir = UNWRAPPEDDIR1 - UNWRAPPEDDIR2
+    diffDir[MASK == 0] = 0
+    diffDir = NormalizeMinuDir(diffDir)
+    dirMask = np.abs(diffDir) < 90
+    PHASE2ORIGIN[dirMask == 0] = -PHASE2ORIGIN[dirMask == 0]
+    phasediffRaw = PHASE2ORIGIN - PHASE1ORIGIN
+    phasediffRaw[MASK == 0] = 0
+
+    # t1 = time.time()
+    ret, phaseDiff, PHASE_MASK, reliability = PhaseUnwrap(phasediffRaw, MASK)
+    # t2 = time.time()
+    # print("phase unwrap: ",t2-t1)
+
+    if ret:
+        # find start point of unwrapping
+        minuType = np.hstack(
+            (
+                minu1[:, 3].reshape((-1, 1)),
+                minu2[:, 3].reshape((-1, 1)),
+            )
+        )
+
+        # t1 = time.time()
+        startPts, phaseDiff, vis = find_unwrap_start_point2(
+            anchorPts, minuType, PHASE_MASK, phasediffRaw, phaseDiff
+        )
+        # t2 = time.time()
+        # print("find_unwrap_start_point2: ",t2-t1)
+
+        for i in range(0, len(vis)):
+            if vis[i] == 0:
+                PHASE_MASK[PHASE_MASK == i + 1] = 0
+
+        # sample on valid mask region
+        blockSize = 20
+        # compute distortion
+        px, py, xx, yy = ComputeDistortion(
+            phaseDiff, PED1, UNWRAPPEDDIR1, blockSize, PHASE_MASK
+        )
+
+        if xx.shape[0] > 2:
+            xx = xx.reshape((-1, 1))
+            yy = yy.reshape((-1, 1))
+            p_phase = np.hstack(
+                (
+                    xx + px[yy, xx].reshape((-1, 1)),
+                    yy + py[yy, xx].reshape((-1, 1)),
+                    xx,
+                    yy,
+                )
+            )
+            suc = True
+        
+        else:
+            # print(
+            #     "[%s] - [%s] Error: No valid point after distortion field smooth \n"
+            #     % (ftitle1, ftitle2)
+            # )
+            # suc = False
+            # return None, -1, -1
+            raise ValueError('No valid point after distortion field smooth !')
+        
+    else:
+        # suc = False
+        # return None, -1, -1
+        raise ValueError('Dense Registration error !')
+    
+
+    # ---------------------------------------------------------- #
+    # ----------------------- distortion ----------------------- #
+    # ---------------------------------------------------------- #
+    img1 = cv2.imread(osp.join(bimg_dir,ftitle1+'.png'),0)
+    h, w = img1.shape
+    x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
+    x = x.reshape((-1, 1))
+    y = y.reshape((-1, 1))
+    origin_xy = np.hstack((x, y))
+
+    # init_tps_matrix = tps_module_numpy(p_init[:, 2:], p_init[:, 0:2])
+    # init_xy = tps_apply_transform(origin_xy, p_init[:, 2:], init_tps_matrix)
+    # phase_tps_matrix = tps_module_numpy(p_phase[:, 2:], p_phase[:, 0:2])
+    # phase_xy = tps_apply_transform(init_xy, p_phase[:, 2:], phase_tps_matrix)
+    phase_tps_matrix = tps_module_numpy(p_phase[:, 2:], p_phase[:, 0:2])
+    phase_xy = tps_apply_transform(origin_xy, p_phase[:, 2:], phase_tps_matrix)
+
+    dx = (phase_xy[:, 0] - origin_xy[:, 0]).reshape((-1, 1))
+    dy = (phase_xy[:, 1] - origin_xy[:, 1]).reshape((-1, 1))
+
+    
+    # img2_tmp = griddata(
+    #     np.hstack((x + dx, y + dy)),
+    #     img_deformed.reshape((-1, 1)),
+    #     np.hstack((x, y)),
+    #     method="nearest",
+    #     fill_value=255
+    # ).reshape((h, w))
+
+    return dx, dy
 
 
 def ExtractPhaseFeature(
-    feature_path, res_path, ftitle, prefix="phase", ext="png", save=True
+    feature_path, res_path, ftitle, prefix="phase", ext="png", save=True,bimg_prefix="b"
 ):
     """Extract phase information and save
     Args:
@@ -248,16 +480,23 @@ def ExtractPhaseFeature(
         prefix (str, optional): Prefix of result. Defaults to "phase".
         ext (str, optional): Save format of images. Defaults to 'png'.
     """
-    timg = cv2.imread(
-        osp.join(feature_path, "t" + ftitle + "." + ext), cv2.IMREAD_GRAYSCALE
-    )
+    # timg = cv2.imread(
+    #     osp.join(feature_path, "t" + ftitle + "." + ext), cv2.IMREAD_GRAYSCALE
+    # )
     bimg = cv2.imread(
-        osp.join(feature_path, "b" + ftitle + "." + ext), cv2.IMREAD_GRAYSCALE
+        osp.join(feature_path, bimg_prefix + ftitle + "." + ext), cv2.IMREAD_GRAYSCALE
     )
-    m_dir, m_ped, m_mask0 = ComputePeriod_Dir(timg)
+    # m_dir, m_ped, m_mask0 = ComputePeriod_Dir(timg)
+    # t1 = time.time()
+    m_dir, m_ped, m_mask0 = ComputePeriod_Dir(bimg)
+    # t2 = time.time()
+    # print("feature extraction - compute ped_dir: {}s".format(t2-t1))
+    # t1 = time.time()
     m_phase, m_unwrappedDir, m_mask1, m_xn, m_yn, m_sps = ComputePhase(
         bimg, m_dir, m_ped, m_mask0
     )
+    # t2 = time.time()
+    # print("feature extraction - compute phase: {}s".format(t2-t1))
     scio.savemat(
         osp.join(res_path, prefix + ftitle + ".mat"),
         {
@@ -272,7 +511,7 @@ def ExtractPhaseFeature(
             "m_sps": m_sps,
         },
     )
-    print("Extracting phase from " + ftitle + " successfully!")
+    # print("Extracting phase from " + ftitle + " successfully!")
     return m_phase, m_unwrappedDir, m_mask0, m_mask1, m_dir, m_ped, m_xn, m_yn, m_sps
 
 
@@ -314,6 +553,7 @@ def ComputePhase(img, DIR, PED, MASK):
     Intensity = np.abs(Z)
     PHASE = np.angle(Z)
     PHASE[Intensity < 0.00001] = 2 * np.pi  # invalid
+
 
     return PHASE, DIR2, MASK2, xn, yn, sps
 
@@ -389,7 +629,8 @@ def UnwrapOrientationField(D1):
                 if FLAG[y2, x2] == 1:
                     # Upwrap, change flag and push into queue
                     dif = D2[y1, x1] - D1[y2, x2]
-                    D2[y2, x2] = D1[y2, x2] + np.round(ROUND_EPS + dif / 180) * 180
+                    D2[y2, x2] = D1[y2, x2] + \
+                        np.round(ROUND_EPS + dif / 180) * 180
                     FLAG[y2, x2] = 3
                     qlen = qlen + 1
                     q[qlen, 0:2] = np.array([x2, y2])
@@ -404,12 +645,14 @@ def UnwrapOrientationField(D1):
             for j in range(start, len(cxn)):
                 dif = D2[cyn[j], cxn[j]] - D2[cyn[j - 1], cxn[j - 1]]
                 if np.abs(np.mod(dif, 360) - 180) < 90:
-                    D2[cyn[j], cxn[j]] = D2[cyn[j], cxn[j]] - np.sign(dif) * 180
+                    D2[cyn[j], cxn[j]] = D2[cyn[j],
+                                            cxn[j]] - np.sign(dif) * 180
 
             for j in range(start - 2, -1, -1):
                 dif = D2[cyn[j], cxn[j]] - D2[cyn[j + 1], cxn[j + 1]]
                 if np.abs(np.mod(dif, 360) - 180) < 90:
-                    D2[cyn[j], cxn[j]] = D2[cyn[j], cxn[j]] - np.sign(dif) * 180
+                    D2[cyn[j], cxn[j]] = D2[cyn[j],
+                                            cxn[j]] - np.sign(dif) * 180
 
         # for each branch cut, there should be another one along with the
         # original one, which has a 180 degree difference, together, they form the
@@ -423,8 +666,10 @@ def UnwrapOrientationField(D1):
             cy = ynn[i]
 
             # extend the front and end of the line by 1 pixel
-            ecx = np.hstack((cx[0] + cx[0] - cx[1], cx, cx[-1] + cx[-1] - cx[-2]))
-            ecy = np.hstack((cy[0] + cy[0] - cy[1], cy, cy[-1] + cy[-1] - cy[-2]))
+            ecx = np.hstack((cx[0] + cx[0] - cx[1], cx,
+                            cx[-1] + cx[-1] - cx[-2]))
+            ecy = np.hstack((cy[0] + cy[0] - cy[1], cy,
+                            cy[-1] + cy[-1] - cy[-2]))
 
             im = np.zeros_like(D2, dtype=np.int)
             im[cy, cx] = 1
@@ -433,7 +678,8 @@ def UnwrapOrientationField(D1):
             ind1 = np.ravel_multi_index(arrind, im.shape)
             tmpmask = (ecx >= 1) & (ecx <= w) & (ecy >= 1) & (ecy <= h)
             ind2 = np.setdiff1d(
-                ind1, np.ravel_multi_index((ecy[tmpmask], ecx[tmpmask]), D2.shape)
+                ind1, np.ravel_multi_index(
+                    (ecy[tmpmask], ecx[tmpmask]), D2.shape)
             )
             im = np.zeros_like(D2, dtype=np.int)
             ind2_y, ind2_x = np.unravel_index(ind2, D2.shape)
@@ -455,8 +701,10 @@ def UnwrapOrientationField(D1):
             I[ind2] = 0
             ind2 = FindCurve2(I, cx[0], cy[0])
 
-            y = ind1[1, int(np.round(ROUND_EPS + (1.1 + ind1.shape[1]) / 2)) - 1]
-            x = ind1[0, int(np.round(ROUND_EPS + (1.1 + ind1.shape[1]) / 2)) - 1]
+            y = ind1[1, int(
+                np.round(ROUND_EPS + (1.1 + ind1.shape[1]) / 2)) - 1]
+            x = ind1[0, int(
+                np.round(ROUND_EPS + (1.1 + ind1.shape[1]) / 2)) - 1]
             flag = 0
             dx2 = np.array([0, 1, 0, -1, 1, 1, -1, -1])
             dy2 = np.array([-1, 0, 1, 0, 1, -1, 1, -1])
@@ -519,7 +767,7 @@ def UnwrapOrientationField(D1):
 
 
 def PhaseUnwrap(phase, mask, threshold=200.0):
-    """Herr�?ez M A, Burton D R, Lalor M J, et al. Fast two-dimensional phase-unwrapping
+    """Herrez M A, Burton D R, Lalor M J, et al. Fast two-dimensional phase-unwrapping
        algorithm based on sorting by reliability following a noncontinuous path[J]. Applied Optics, 2002, 41(35): 7437-7444.
     Args:
         phase ([type]): [description]
@@ -548,11 +796,12 @@ def PhaseUnwrap(phase, mask, threshold=200.0):
     yy, xx = np.nonzero(bmask)
     for i in range(0, len(yy)):
         if (
-            (yy[i] + 1 >= h) or (yy[i] - 1 < 0) or (xx[i] + 1 > w) or (xx[i] - 1 < 0)
+            (yy[i] + 1 >= h) or (yy[i] - 1 <
+                                 0) or (xx[i] + 1 > w) or (xx[i] - 1 < 0)
         ):  # image border
             R[yy[i], xx[i]] = 0
         elif (
-            np.sum(bmask[yy[i] - 1 : yy[i] + 2, xx[i] - 1 : xx[i] + 2]) != 9
+            np.sum(bmask[yy[i] - 1: yy[i] + 2, xx[i] - 1: xx[i] + 2]) != 9
         ):  # mask border
             R[yy[i], xx[i]] = 0
         else:
@@ -580,12 +829,14 @@ def PhaseUnwrap(phase, mask, threshold=200.0):
     for i in range(0, len(yy)):
         if yy[i] + 1 < h and bmask[yy[i] + 1, xx[i]]:
             edgeR[cnt, :] = np.array(
-                [xx[i], yy[i], xx[i], yy[i] + 1, R[yy[i], xx[i]] + R[yy[i] + 1, xx[i]]]
+                [xx[i], yy[i], xx[i], yy[i] + 1,
+                    R[yy[i], xx[i]] + R[yy[i] + 1, xx[i]]]
             )
             cnt += 1
         if xx[i] + 1 < w and bmask[yy[i], xx[i] + 1]:
             edgeR[cnt, :] = np.array(
-                [xx[i], yy[i], xx[i] + 1, yy[i], R[yy[i], xx[i]] + R[yy[i], xx[i] + 1]]
+                [xx[i], yy[i], xx[i] + 1, yy[i],
+                    R[yy[i], xx[i]] + R[yy[i], xx[i] + 1]]
             )
             cnt += 1
 
@@ -639,8 +890,10 @@ def PhaseUnwrap(phase, mask, threshold=200.0):
                 phaseNew[labelIdx_y[label2], labelIdx_x[label2]] += diff
                 label[labelIdx_y[label2], labelIdx_x[label2]] = label1
                 labelCnt[label1] += labelCnt[label2]
-                labelIdx_y[label1] = np.hstack((labelIdx_y[label1], labelIdx_y[label2]))
-                labelIdx_x[label1] = np.hstack((labelIdx_x[label1], labelIdx_x[label2]))
+                labelIdx_y[label1] = np.hstack(
+                    (labelIdx_y[label1], labelIdx_y[label2]))
+                labelIdx_x[label1] = np.hstack(
+                    (labelIdx_x[label1], labelIdx_x[label2]))
                 labelCnt[label2] = 0
                 labelIdx_y[label2] = np.array([])
                 labelIdx_x[label2] = np.array([])
@@ -654,8 +907,10 @@ def PhaseUnwrap(phase, mask, threshold=200.0):
                 phaseNew[labelIdx_y[label1], labelIdx_x[label1]] += diff
                 label[labelIdx_y[label1], labelIdx_x[label1]] = label2
                 labelCnt[label2] += labelCnt[label1]
-                labelIdx_y[label2] = np.hstack((labelIdx_y[label2], labelIdx_y[label1]))
-                labelIdx_x[label2] = np.hstack((labelIdx_x[label2], labelIdx_x[label1]))
+                labelIdx_y[label2] = np.hstack(
+                    (labelIdx_y[label2], labelIdx_y[label1]))
+                labelIdx_x[label2] = np.hstack(
+                    (labelIdx_x[label2], labelIdx_x[label1]))
                 labelCnt[label1] = 0
                 labelIdx_y[label1] = np.array([])
                 labelIdx_x[label1] = np.array([])
@@ -740,9 +995,9 @@ def find_unwrap_start_point2(anchorPts, minuType, PHASE_MASK, phasediffRaw, phas
         down = cy + sz
         left = cx - sz
         right = cx + sz
-        mask = PHASE_MASK[top : down + 1, left : right + 1]
-        phasediffraw = phasediffRaw[top : down + 1, left : right + 1]
-        phaseunwrap = phaseDiff[top : down + 1, left : right + 1]
+        mask = PHASE_MASK[top: down + 1, left: right + 1]
+        phasediffraw = phasediffRaw[top: down + 1, left: right + 1]
+        phaseunwrap = phaseDiff[top: down + 1, left: right + 1]
         vmask = mask.flatten()
         vmask = vmask[vmask != 0]
         if vmask.shape[0] == 0:
@@ -800,7 +1055,8 @@ def find_unwrap_start_point2(anchorPts, minuType, PHASE_MASK, phasediffRaw, phas
                 tidx = idx[int(np.round((1 + len(idx)) / 2 + ROUND_EPS)) - 1]
                 vis[i - 1] = 1
                 startPts = np.vstack(
-                    (startPts, np.array([tmpAnchorPts[tidx, 3], tmpAnchorPts[tidx, 4]]))
+                    (startPts, np.array(
+                        [tmpAnchorPts[tidx, 3], tmpAnchorPts[tidx, 4]]))
                 )
                 ind = PHASE_MASK == i
                 phaseDiff[ind] = phaseDiff[ind] + tmpAnchorPts[tidx, 2]
@@ -819,7 +1075,8 @@ def find_unwrap_start_point2(anchorPts, minuType, PHASE_MASK, phasediffRaw, phas
 
     for i_region in range(1, 11):
         if (
-            vis[i_region - 1] == 0 and phase_mask_cnt[i_region - 1] > region_size_thresh
+            vis[i_region - 1] == 0 and phase_mask_cnt[i_region -
+                                                      1] > region_size_thresh
         ):  # ignore small areas
             tmpgoodArea = (PHASE_MASK == i_region) & goodArea
             curAreaVals = meanCosPhasediffRaw[tmpgoodArea]
@@ -851,7 +1108,8 @@ def stdfilt(arr, nhood=3):
     n = h.sum()
     n1 = n - 1
     c1 = cv2.filter2D(arr ** 2, -1, h / n1, borderType=cv2.BORDER_REFLECT)
-    c2 = cv2.filter2D(arr, -1, h, borderType=cv2.BORDER_REFLECT) ** 2 / (n * n1)
+    c2 = cv2.filter2D(
+        arr, -1, h, borderType=cv2.BORDER_REFLECT) ** 2 / (n * n1)
     J = np.sqrt(np.maximum(c1 - c2, 0))
     J[np.isnan(J)] = 0
     return J
@@ -871,7 +1129,8 @@ def ComputeDistortion(phaseDiff, PED1, UNWRAPPEDDIR1, blkSize, PHASE_MASK):
     """
     h, w = phaseDiff.shape
     unwrappedGdt1 = UNWRAPPEDDIR1 + 90
-    offsets = np.divide(phaseDiff, (np.spacing(1) + np.divide(2 * np.pi, PED1)))
+    offsets = np.divide(
+        phaseDiff, (np.spacing(1) + np.divide(2 * np.pi, PED1)))
     px = np.multiply(np.cos(unwrappedGdt1 * np.pi / 180), offsets)
     py = np.multiply(np.sin(unwrappedGdt1 * np.pi / 180), offsets)
     mask = PHASE_MASK != 0
@@ -886,7 +1145,8 @@ def ComputeDistortion(phaseDiff, PED1, UNWRAPPEDDIR1, blkSize, PHASE_MASK):
     badArea = badAreax | badAreay
     mask[badArea == 1] = 0
     rnd = int(np.round(blkSize / 2 + ROUND_EPS)) - 1
-    xx, yy = np.meshgrid(np.arange(rnd, w, blkSize), np.arange(rnd, h, blkSize))
+    xx, yy = np.meshgrid(np.arange(rnd, w, blkSize),
+                         np.arange(rnd, h, blkSize))
     xx = xx.flatten()
     yy = yy.flatten()
     xx2 = xx[mask[yy, xx] == 1]

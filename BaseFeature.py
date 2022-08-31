@@ -16,9 +16,10 @@ import sys
 
 sys.path.append(osp.dirname(osp.abspath(__file__)))
 from BasePhase import ExtractPhaseFeature
+from fp_segmtation import segmentation_coherence
 
 
-def ExtractFeature(img_path, feature_path, ftitle, tool, ext="png"):
+def ExtractFeature(img_path, feature_path, ftitle, tool, ext="png",vf=True,phase=True):
     """Extract features (binary,skeleton, minutiae, phase)
        The prefixes of these features should be:
             fingerprint - None
@@ -42,15 +43,17 @@ def ExtractFeature(img_path, feature_path, ftitle, tool, ext="png"):
             osp.join(feature_path, ftitle + "." + ext),
         )
 
-    tool.minutia_extraction(img_path, ftitle, feature_path, "mf" + ftitle, ext)
-    tool.binary_extraction(img_path, ftitle, feature_path, "b" + ftitle, ext)
-    tool.skeleton_extraction(img_path, ftitle, feature_path, "t" + ftitle, ext)
-    ExtractPhaseFeature(feature_path, feature_path, ftitle, "phase_", ext, save=True)
+    if vf:
+        tool.minutia_extraction(img_path, ftitle, feature_path, "mf" + ftitle, ext)
+        tool.binary_extraction(img_path, ftitle, feature_path, "b" + ftitle, ext)
+        # tool.skeleton_extraction(img_path, ftitle, feature_path, "t" + ftitle, ext)
+    if phase:
+        ExtractPhaseFeature(feature_path, feature_path, ftitle, "phase_", ext, save=True)
 
     return
 
 
-def PadImage(img_path, feature_path, ftitle1, ftitle2, ext="png"):
+def PadImage(img_path, feature_path, ftitle1, ftitle2, ext="png",blk=0):
     """Make two fingerprints the same size and save them in feature_path
 
     Args:
@@ -70,26 +73,21 @@ def PadImage(img_path, feature_path, ftitle1, ftitle2, ext="png"):
     row = max(im1.shape[0], im2.shape[0])
     col = max(im1.shape[1], im2.shape[1])
 
-    if im1.shape == im2.shape:
-        shutil.copy(
-            osp.join(img_path, ftitle1 + "." + ext),
-            osp.join(feature_path, ftitle1 + "." + ext),
-        )
-        shutil.copy(
-            osp.join(img_path, ftitle2 + "." + ext),
-            osp.join(feature_path, ftitle2 + "." + ext),
-        )
+    if im1.shape == im2.shape and blk==0:
+        cv2.imwrite(osp.join(feature_path, ftitle1 + "." + ext), im1)
+        cv2.imwrite(osp.join(feature_path, ftitle2 + "." + ext), im2)
+        return
     else:
         im1_pad = np.pad(
             im1,
-            ((0, row - im1.shape[0]), (0, col - im1.shape[1])),
+            ((blk, blk+row - im1.shape[0]), (blk, blk+col - im1.shape[1])),
             mode="constant",
             constant_values=255,
         )
         cv2.imwrite(osp.join(feature_path, ftitle1 + "." + ext), im1_pad)
         im2_pad = np.pad(
             im2,
-            ((0, row - im2.shape[0]), (0, col - im2.shape[1])),
+            ((blk, blk+row - im2.shape[0]), (blk, blk+col - im2.shape[1])),
             mode="constant",
             constant_values=255,
         )
