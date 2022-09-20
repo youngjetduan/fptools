@@ -33,8 +33,8 @@ from Base import (
     NormalizeMinuDir,
     RidgeFilterComplex,
 )
-from fptools.fp_verifinger import load_minutiae
-from fptools.fp_sift import regist_sift
+from fp_verifinger import load_minutiae
+from fp_sift import regist_sift
 
 
 
@@ -93,7 +93,6 @@ def PhaseRegistration(
                       "." + ext), cv2.IMREAD_GRAYSCALE)
     h, w = img1.shape
 
-    # t1 = time.time()
     if initFunc is "VeriFinger":
         MINU1 = load_minutiae(osp.join(feature_path, "mf" + ftitle1 + ".mnt"))
         MINU2 = load_minutiae(osp.join(feature_path, "mf" + ftitle2 + ".mnt"))
@@ -112,14 +111,13 @@ def PhaseRegistration(
             # return None, -1, -1
             raise ValueError('Insufficient number of matching points !')
 
-        p_init = np.hstack(
-            (MINU1[init_minu_pairs[:, 0], 0:2],
-             MINU2[init_minu_pairs[:, 1], 0:2])
-        )
+        # p_init = np.hstack(
+        #     (MINU1[init_minu_pairs[:, 0], 0:2],
+        #      MINU2[init_minu_pairs[:, 1], 0:2])
+        # )
 
         if not osp.exists(tmp_path):
             os.makedirs(tmp_path)
-
         
     elif initFunc is "SIFT":
         img_deformed, pts1, pts2 = regist_sift(img1, img2)
@@ -129,21 +127,15 @@ def PhaseRegistration(
         MINU2[:, 0:2] = pts2
         init_minu_pairs = np.array(
             [np.arange(1, MINU1.shape[0]), np.arange(1, MINU1.shape[0])]).T
-        p_init = np.hstack(
-            (MINU1[init_minu_pairs[:, 0], 0:2],
-             MINU2[init_minu_pairs[:, 1], 0:2])
-        )
+        # p_init = np.hstack(
+        #     (MINU1[init_minu_pairs[:, 0], 0:2],
+        #      MINU2[init_minu_pairs[:, 1], 0:2])
+        # )
 
     else:
-        # print(
-        #     "[%s] - [%s] Error: %s No such init function type !\n"
-        #     % (ftitle1, ftitle2,initFunc)
-        # )
-        # return None, -1, -1
         raise ValueError('No such init function type !')
     
-    # t2 = time.time()
-    # print("init registration: {}s".format(t2-t1))
+
 
     img_deformed = opencv_tps(
         img2,
@@ -163,9 +155,7 @@ def PhaseRegistration(
     tool.binary_extraction(
         tmp_path, img_deformed_title, tmp_path, "b" + img_deformed_title, ext
     )
-    # tool.skeleton_extraction(
-    #     tmp_path, img_deformed_title, tmp_path, "t" + img_deformed_title, ext
-    # )
+
     ExtractPhaseFeature(
         tmp_path,
         tmp_path,
@@ -174,8 +164,6 @@ def PhaseRegistration(
         ext="png",
         save=False,
     )
-    # t3 = time.time()
-    # print("feature extraction 2: {}s".format(t3-t2))
 
 
     # ----------------------------------------------------- #
@@ -213,10 +201,8 @@ def PhaseRegistration(
     phasediffRaw = PHASE2ORIGIN - PHASE1ORIGIN
     phasediffRaw[MASK == 0] = 0
 
-    # t1 = time.time()
+
     ret, phaseDiff, PHASE_MASK, reliability = PhaseUnwrap(phasediffRaw, MASK)
-    # t2 = time.time()
-    # print("phase unwrap: ",t2-t1)
 
     if ret:
         # find start point of unwrapping
@@ -227,12 +213,9 @@ def PhaseRegistration(
             )
         )
 
-        # t1 = time.time()
         startPts, phaseDiff, vis = find_unwrap_start_point2(
             anchorPts, minuType, PHASE_MASK, phasediffRaw, phaseDiff
         )
-        # t2 = time.time()
-        # print("find_unwrap_start_point2: ",t2-t1)
 
         for i in range(0, len(vis)):
             if vis[i] == 0:
@@ -259,26 +242,15 @@ def PhaseRegistration(
             suc = True
         
         else:
-            # print(
-            #     "[%s] - [%s] Error: No valid point after distortion field smooth \n"
-            #     % (ftitle1, ftitle2)
-            # )
-            # suc = False
-            # return None, -1, -1
             raise ValueError('No valid point after distortion field smooth !')
         
     else:
-        # suc = False
-        # return None, -1, -1
         raise ValueError('Dense Registration error !')
     
-    # t4 = time.time()
-    # print("phase registration: {}s".format(t4-t3))
 
     # ---------------------------------------------------------- #
     # ----------------------- distortion ----------------------- #
     # ---------------------------------------------------------- #
-    # t1 = time.time()
     h, w = img1.shape
     x, y = np.meshgrid(np.arange(0, w), np.arange(0, h))
     x = x.reshape((-1, 1))
@@ -308,11 +280,6 @@ def PhaseRegistration(
         method="nearest",
         fill_value=255
     ).reshape((h, w))
-    # t2 = time.time()
-    # print("distortion: ",t2-t1)
-
-    # t5 = time.time()
-    # print("grid warp: {}s".format(t5-t4))
 
     return img2_tmp, dx, dy
 

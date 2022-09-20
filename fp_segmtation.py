@@ -15,8 +15,9 @@ from skimage.segmentation import watershed
 from skimage.filters import sobel
 import torch
 import torch.nn.functional as F
-
-from .fp_orientation import calc_orientation_graident
+import sys
+sys.path.append(osp.dirname(osp.abspath(__file__)))
+from fp_orientation import calc_orientation_graident
 
 
 def ridge_coherence(img, win_size=8, stride=8):
@@ -75,10 +76,10 @@ def segmentation_postprocessing(seg, kernel_size=5, stride=8, convex=False):
     selem = np.ones((kernel_size, kernel_size))
     # seg = morphology.binary_opening(seg.astype(np.bool), footprint=selem)
     # seg = morphology.binary_closing(seg.astype(np.bool), footprint=selem)
-    seg = morphology.binary_erosion(seg.astype(bool), footprint=selem)
+    seg = morphology.binary_erosion(seg.astype(bool), selem)
     seg = morphology.remove_small_holes(seg, area_threshold=15000 // (stride ** 2))
     seg = morphology.remove_small_objects(seg, min_size=15000 // (stride ** 2))
-    seg = morphology.binary_dilation(seg.astype(bool), footprint=selem)
+    seg = morphology.binary_dilation(seg.astype(bool), selem)
     seg = find_largest_connected_region(seg)
     if convex and seg.sum() > 0:
         seg = convex_hull_image(seg)

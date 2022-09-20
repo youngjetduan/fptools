@@ -2,13 +2,31 @@
 Description:  
 Author: Guan Xiongjun
 Date: 2022-02-07 20:40:38
-LastEditTime: 2022-08-31 13:52:30
+LastEditTime: 2022-09-20 17:29:33
 LastEditors: Please set LastEditors
 '''
 import numpy as np
 from scipy.interpolate import griddata
+import torch
+import torch.nn.functional as F
 
+def apply_distortion_torch(img, coordinate,image_height,image_width,mode='bilinear'):
+    """_summary_
 
+    Args:
+        img (_type_): _description_
+        coordinate (_type_): dst coordinate. from -1 to 1 .
+        image_height (_type_): _description_
+        image_width (_type_): _description_
+        mode (str, optional): _description_. Defaults to 'bilinear'.
+
+    Returns:
+        _type_: _description_
+    """
+    batch_size = img.size(0)
+    coordinate = coordinate.view(batch_size, image_height, image_width, 2)
+    img = F.grid_sample(img, coordinate,align_corners=False,mode=mode)
+    return img
 
 def apply_distortion(img, dx, dy, need_rect=False):
     """distorted image according to the displacement
@@ -33,7 +51,8 @@ def apply_distortion(img, dx, dy, need_rect=False):
                   y + dy.reshape((-1, 1)))),
         img.reshape((-1, 1)),
         np.hstack((x, y)),
-        method="nearest",
+        method="linear",
+        fill_value=255,
     ).reshape(img_shape)
 
     if need_rect is True:
@@ -42,7 +61,7 @@ def apply_distortion(img, dx, dy, need_rect=False):
                     y + dy.reshape((-1, 1)))),
             (-dx).reshape((-1, 1)),
             np.hstack((x, y)),
-            method="nearest",
+            method="linear",
         ).reshape(img_shape)
 
         dy_rect = griddata(
@@ -50,7 +69,7 @@ def apply_distortion(img, dx, dy, need_rect=False):
                     y + dy.reshape((-1, 1)))),
             (-dy).reshape((-1, 1)),
             np.hstack((x, y)),
-            method="nearest",
+            method="linear",
         ).reshape(img_shape)
 
         return img_dis,dx_rect,dy_rect

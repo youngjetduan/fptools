@@ -246,7 +246,61 @@ def ComputePeriod(I, DIR, BLOCK_SIZE):
 
     return P
 
+def ComputePeriod_Dir_With_Mask(skel,MASK):
+    """Calculate the period image, direction image and segmentation image of fingerprint
 
+    Args:
+        skel ([type]): skeleton image
+
+    Returns:
+        DIR: direction image
+        PED: period image
+        MASK: segmentation image
+    """
+    max_period = 20
+    max_half_period = max_period / 2
+    blksize = 8
+    T = skel
+    D = distance_transform_edt(T)
+    D[D > max_half_period] = max_half_period
+
+    DIR, _ = ComputeDir(D, 1, 21)
+    DIR = DIR[int(blksize / 2) :: blksize, int(blksize / 2) :: blksize]
+
+    blk_MASK = MASK[int(blksize / 2) :: blksize, int(blksize / 2) :: blksize]
+    DIR[blk_MASK == 0] = 91
+    
+
+    P = ComputePeriod(
+        D.astype(np.double),
+        DIR,
+        blksize,
+    )
+    P[blk_MASK == 0] = 0
+    P[P < 0] = 0
+    P[P > max_period] = max_period
+
+    P = MedianFilter(P, blk_MASK, 3)
+    P[P < 0] = 0
+    P[P > max_period] = max_period
+
+    PED = copy.deepcopy(P)
+    MASK2 = ((DIR != 91) & (PED > 0)).astype(np.int)
+    MASK3 = copy.deepcopy(blk_MASK)
+    MASK3[(blk_MASK==1)&(MASK2==0)]=2
+
+    # fill hole in Ridge Flow Map
+    DIR = DIR.astype(np.double)
+    DIR = FillHoleDir(DIR, MASK3)
+
+    # Fill hold in Ridge Wavelength Map
+    PED = PED.astype(np.double)
+    PED = FillHolePed(PED, MASK3)
+
+    DIR[DIR==91]=0
+
+    return DIR, PED
+    
 def ComputeDir(I, BLK_SIZE, smoothsize=None):
     """Compute blockwise direction image using gradient method.
     % Problems:

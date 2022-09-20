@@ -14,14 +14,16 @@ from scipy.ndimage import zoom
 from scipy import ndimage as ndi
 import torch
 import torch.nn.functional as F
+import cv2
 
-from . import fp_orientation
-from .uni_image import intensity_normalization
+sys.path.append(osp.dirname(osp.abspath(__file__)))
+from fp_orientation import zoom_orientation
+from uni_image import intensity_normalization
 
 
 def steerable_enhance(img, ori, seg, sigma=2):
     if np.any(np.array(ori.shape) != np.array(img.shape)):
-        ori = fp_orientation.zoom_orientation(ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]))
+        ori = zoom_orientation(ori, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]))
     if np.any(np.array(seg.shape) != np.array(img.shape)):
         seg = ndi.zoom(seg, (1.0 * img.shape[0] / ori.shape[0], 1.0 * img.shape[1] / ori.shape[1]), order=0)
     Ixx = ndi.gaussian_filter(img.astype(np.float32), sigma, order=(0, 2))
@@ -150,6 +152,10 @@ def fast_cartoontexture(img, sigma=2.5, cmin=0.3, cmax=0.7, lim=20, eps=1e-8):
     texture = np.clip(texture, 0, 255)
     return cartoon, texture
 
+def localEqualHist(img):
+    clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(32,32))
+    dst = clahe.apply(img)
+    return dst
 
 if __name__ == "__main__":
     prefix = ""
