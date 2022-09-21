@@ -5,6 +5,9 @@ Copyright (c) 2021, Yongjie Duan. All rights reserved.
 """
 import os
 import sys
+import cv2
+import random
+import copy
 
 # os.chdir(sys.path[0])
 import os.path as osp
@@ -116,6 +119,124 @@ def dryness(img, selem=np.ones([2, 2])):
 def heavypress(img, selem=np.ones([3, 3])):
     img_n = morphology.erosion(img, selem=selem)
     return img_n
+
+
+def GaussianNoise(src, means, sigma, percentage):
+    NoiseImg = src
+    NoiseNum = int(percentage * src.shape[0] * src.shape[1])
+    for i in range(NoiseNum):
+        randX = random.randint(1, src.shape[0] - 2)
+        randY = random.randint(1, src.shape[1] - 2)
+        NoiseImg[randX - 1 : randX + 1, randY - 1 : randY + 1] = NoiseImg[
+            randX - 1 : randX + 1, randY - 1 : randY + 1
+        ] + random.gauss(means, sigma)
+        if NoiseImg[randX, randY] < 0:
+            NoiseImg[randX, randY] = 0
+        elif NoiseImg[randX, randY] > 255:
+            NoiseImg[randX, randY] = 255
+    return NoiseImg
+
+
+def crop_patch(mask, translation, rotation, rot_center):
+    back_mask = np.ones_like(mask) * 255
+    height, width = mask.shape[0], mask.shape[1]
+    M = cv2.getRotationMatrix2D(rot_center, rotation, 1)
+    M[:, 2] = M[:, 2] + translation
+    back_mask = cv2.warpAffine(
+        back_mask,
+        M,
+        (width, height),
+        flags=cv2.INTER_NEAREST,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+    mask[back_mask == 0] = 0
+    return mask
+
+def AddCut(
+    mask,
+    pCut=0,
+    cut_param=[0, 50, 100, 200, -20, 20]
+    ):
+    if random.random() < pCut:
+        rot_center = (mask.shape[1] // 2, mask.shape[0] // 2)
+        translation = np.rint(
+            [
+                np.random.uniform(cut_param[0], cut_param[1]),
+                np.random.uniform(cut_param[2], cut_param[3]),
+            ]
+            * np.random.choice([1, -1], 2)
+        ).astype(np.int)
+        rotation = random.randint(cut_param[4], cut_param[5])
+        square_mask = np.ones_like(mask)
+        cut_mask = crop_patch(square_mask, translation, rotation, rot_center)
+    
+
+        mask[cut_mask==0] = 0
+    return mask
+
+
+def AddBackgound(
+    img,
+    mask,
+    bimg,
+    back,
+    pCut=0,
+    cut_param=[0, 50, 100, 200, -20, 20],
+    pBack=0.5,
+    pInv=0.2,
+    back_noise=[0.2, 0.4],
+    pGauss=0.5,
+    gaussianBlur_core=3,
+    GaussianNoise_sigma=10,
+):
+    img = copy.deepcopy(img)
+    bimg = copy.deepcopy(bimg)
+    mask = copy.deepcopy(mask)
+    back = copy.deepcopy(back)
+
+    [hi, wi] = img.shape
+
+    if random.random() < pBack:
+        [hb, wb] = back.shape
+        # invert color
+        if random.random() < pInv:
+            img = 255 - img
+
+        # Scale range of random background superimposition: the larger the value, the greater the noise
+        back_weight = random.uniform(back_noise[0], back_noise[1])
+
+        # Randomly intercept background image block
+        rand_x = random.randint(0, hb - hi)
+        rand_y = random.randint(0, wb - wi)
+        back_patch = back[rand_x : rand_x + hi, rand_y : rand_y + wi]
+        img = back_weight * back_patch + (1 - back_weight) * img
+
+        if random.random() < pGauss:
+            # Gaussian blur: (3, 3), (5, 5), (7, 7) the larger the number, the more blurred
+            img = cv2.GaussianBlur(img, (gaussianBlur_core, gaussianBlur_core), 3)
+            # Point noise addition: the larger the third parameter, the stronger the noise
+            img = GaussianNoise(img, 0, GaussianNoise_sigma, 0.1)
+
+    # cut img
+    if random.random() < pCut:
+        rot_center = (img.shape[1] // 2, img.shape[0] // 2)
+        translation = np.rint(
+            [
+                np.random.uniform(cut_param[0], cut_param[1]),
+                np.random.uniform(cut_param[2], cut_param[3]),
+            ]
+            * np.random.choice([1, -1], 2)
+        ).astype(np.int)
+        rotation = random.randint(cut_param[4], cut_param[5])
+        square_mask = np.ones_like(mask)
+        cut_mask = crop_patch(square_mask, translation, rotation, rot_center)
+    
+        img[cut_mask==0] = 255
+        bimg[cut_mask==0] = 255
+        mask[cut_mask==0] = 0
+
+    return img, mask,bimg
 
 
 if __name__ == "__main__":
