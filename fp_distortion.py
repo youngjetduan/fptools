@@ -2,13 +2,20 @@
 Description:  
 Author: Guan Xiongjun
 Date: 2022-02-07 20:40:38
-LastEditTime: 2022-09-20 17:29:33
+LastEditTime: 2022-09-24 11:31:35
 LastEditors: Please set LastEditors
 '''
 import numpy as np
 from scipy.interpolate import griddata
 import torch
 import torch.nn.functional as F
+from scipy.ndimage import zoom
+import sys
+import os
+import os.path as osp
+sys.path.append(osp.dirname(osp.abspath(__file__)))
+from uni_tps import tps_module_numpy,tps_apply_transform
+
 
 def apply_distortion_torch(img, coordinate,image_height,image_width,mode='bilinear'):
     """_summary_
@@ -109,3 +116,31 @@ def transform_rect_to_dis(img_shape, dx_rect, dy_rect):
     ).reshape(img_shape)
 
     return dx,dy
+
+def generate_outside_distortion_by_common_area(dx,dy,common_mask):
+    h,w = common_mask.shape
+    x, y = np.meshgrid(np.arange(0, h), np.arange(0, w))
+
+    zoom_param = 1/8
+    dx_resize = zoom(dx,zoom=zoom_param, order=1)
+    dy_resize = zoom(dy,zoom=zoom_param ,order=1)
+    mask_resize = zoom(common_mask,zoom=zoom_param ,order=1)
+    mask_resize = (mask_resize>0.5)
+    x_resize = zoom(x,zoom=zoom_param ,order=1)
+    y_resize = zoom(y,zoom=zoom_param ,order=1)
+
+    xs = x_resize[mask_resize>0]
+    ys = y_resize[mask_resize>0]
+    dxs = dx_resize[mask_resize>0]
+    dys = dy_resize[mask_resize>0]
+
+    src_cpts = np.float32(np.vstack((xs,ys)).T)
+    src_pts = np.float32(np.vstack((x.reshape((-1,)),y.reshape((-1,)))).T)
+    tar_cpts = np.float32(np.vstack(((xs+dxs,ys+dys))).T)
+
+    mapping_matrix = tps_module_numpy(src_cpts,tar_cpts,5)
+    tar_pts = tps_apply_transform(src_pts, src_cpts, mapping_matrix)
+    dx = tar_pts[:,0].reshape(x.shape)-x
+    dy = tar_pts[:,1].reshape(y.shape)-y
+    return dx,dy
+    
