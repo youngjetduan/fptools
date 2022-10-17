@@ -2,7 +2,7 @@
 Description:  
 Author: Guan Xiongjun
 Date: 2022-02-07 20:40:38
-LastEditTime: 2022-09-24 11:31:35
+LastEditTime: 2022-10-12 18:33:47
 LastEditors: Please set LastEditors
 '''
 import numpy as np
@@ -135,12 +135,18 @@ def generate_outside_distortion_by_common_area(dx,dy,common_mask):
     dys = dy_resize[mask_resize>0]
 
     src_cpts = np.float32(np.vstack((xs,ys)).T)
-    src_pts = np.float32(np.vstack((x.reshape((-1,)),y.reshape((-1,)))).T)
+    src_pts = np.float32(np.vstack((x_resize.reshape((-1,)),y_resize.reshape((-1,)))).T)
     tar_cpts = np.float32(np.vstack(((xs+dxs,ys+dys))).T)
 
     mapping_matrix = tps_module_numpy(src_cpts,tar_cpts,5)
     tar_pts = tps_apply_transform(src_pts, src_cpts, mapping_matrix)
-    dx = tar_pts[:,0].reshape(x.shape)-x
-    dy = tar_pts[:,1].reshape(y.shape)-y
+
+    fx1,fx2 = x.shape[0]/x_resize.shape[0],x.shape[1]/x_resize.shape[1]
+    fy1,fy2 = y.shape[0]/y_resize.shape[0],y.shape[1]/y_resize.shape[1]
+    dx = zoom(tar_pts[:,0].reshape(x_resize.shape),zoom=(fx1,fx2) ,order=1)-x
+    dy = zoom(tar_pts[:,1].reshape(y_resize.shape),zoom=(fy1,fy2) ,order=1)-y
+    
+    # dx = tar_pts[:,0].reshape(x.shape)-x
+    # dy = tar_pts[:,1].reshape(y.shape)-y
     return dx,dy
     
